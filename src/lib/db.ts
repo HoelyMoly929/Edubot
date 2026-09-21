@@ -26,6 +26,13 @@ function connect(): Promise<Db> {
     .connect()
     .then(async (client) => {
       const db = client.db();
+      // Atlas's copied URI has no database name, and the driver quietly falls
+      // back to "test" — fail loudly instead of writing to the wrong database.
+      if (db.databaseName === "test") {
+        throw new Error(
+          'MONGODB_URI has no database name — add "/edubot" before the "?" in the connection string',
+        );
+      }
       await ensureSetup(db);
       return db;
     });
