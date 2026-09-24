@@ -9,7 +9,7 @@ import {
   type QuizAttempt,
   type Summary,
   type User,
-} from "./schema";
+} from "./schema.ts";
 
 // Cached across hot reloads in dev, otherwise every edit leaks a connection pool.
 declare global {
