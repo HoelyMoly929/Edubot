@@ -34,7 +34,8 @@ export interface PdfDocument {
   userId: ObjectId;
   filename: string;
   blobUrl: string;
-  pageCount: number;
+  /** Unknown until text extraction runs (step 5), so absent on a fresh upload. */
+  pageCount?: number;
   uploadedAt: Date;
   status: "processing" | "ready" | "failed";
   /** Set when status is "failed" — surfaced to the user per spec §11. */
