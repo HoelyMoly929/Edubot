@@ -10,15 +10,18 @@
     "check:schema": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/schema.check.mts",
     "check:db": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/db.check.mts",
     "check:blob": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/blob.check.mts",
-    "check:chunk": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/chunk.check.mts"
+    "check:chunk": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/chunk.check.mts",
+    "check:extract": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/extract.check.mts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.4",
     "@vercel/blob": "^2.8.0",
     "mongodb": "^7.6.0",
     "next": "16.3.5",
+    "openai": "^7.23.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "unpdf": "^1.8.1"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -124,7 +124,11 @@ type CollectionSetup = {
 
 const objectId = { bsonType: "objectId" };
 const string = { bsonType: "string" };
-const int = { bsonType: ["int", "long", "double"] };
+/**
+ * Any JS number. The driver serializes an integer-valued float as int32, so a
+ * "double"-only rule would reject an embedding component that happens to be 0.
+ */
+const number = { bsonType: ["int", "long", "double"] };
 const date = { bsonType: "date" };
 
 /**
@@ -149,7 +153,7 @@ export const SETUP: Record<CollectionName, CollectionSetup> = {
       userId: objectId,
       filename: string,
       blobUrl: string,
-      pageCount: int,
+      pageCount: number,
       uploadedAt: date,
       status: { enum: ["processing", "ready", "failed"] },
     },
@@ -161,9 +165,9 @@ export const SETUP: Record<CollectionName, CollectionSetup> = {
     properties: {
       documentId: objectId,
       text: string,
-      position: int,
-      sourcePage: int,
-      embedding: { bsonType: "array", items: { bsonType: "double" } },
+      position: number,
+      sourcePage: number,
+      embedding: { bsonType: "array", items: number },
     },
   },
   summaries: {
@@ -174,7 +178,7 @@ export const SETUP: Record<CollectionName, CollectionSetup> = {
   quizzes: {
     indexes: [[{ documentId: 1, createdAt: -1 }]],
     required: ["documentId", "questionCount", "createdAt"],
-    properties: { documentId: objectId, questionCount: int, createdAt: date },
+    properties: { documentId: objectId, questionCount: number, createdAt: date },
   },
   questions: {
     indexes: [[{ quizId: 1 }]],
@@ -183,7 +187,7 @@ export const SETUP: Record<CollectionName, CollectionSetup> = {
       quizId: objectId,
       stem: string,
       options: { bsonType: "array", items: { bsonType: "string" } },
-      correctOption: int,
+      correctOption: number,
       difficulty: { enum: DIFFICULTIES },
       chunkId: objectId,
     },
@@ -196,7 +200,7 @@ export const SETUP: Record<CollectionName, CollectionSetup> = {
       userId: objectId,
       quizId: objectId,
       responses: { bsonType: "array" },
-      score: { bsonType: ["int", "long", "double"] },
+      score: number,
       finalDifficulty: { enum: DIFFICULTIES },
       startedAt: date,
     },

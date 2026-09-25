@@ -36,14 +36,24 @@ export default async function DashboardPage() {
       ) : (
         <ul className="mt-6 divide-y divide-black/10 dark:divide-white/15">
           {docs.map((doc) => (
-            <li
-              key={doc._id.toString()}
-              className="flex items-center justify-between gap-4 py-3"
-            >
-              <span className="truncate text-sm">{doc.filename}</span>
-              <span className="shrink-0 text-xs text-black/60 dark:text-white/60">
-                {STATUS_LABEL[doc.status]}
-              </span>
+            <li key={doc._id.toString()} className="py-3">
+              <div className="flex items-center justify-between gap-4">
+                <span className="truncate text-sm">{doc.filename}</span>
+                <span
+                  className={`shrink-0 text-xs ${
+                    doc.status === "failed"
+                      ? "text-red-600 dark:text-red-400"
+                      : "text-black/60 dark:text-white/60"
+                  }`}
+                >
+                  {doc.status === "ready" && doc.pageCount
+                    ? `Ready · ${doc.pageCount} page${doc.pageCount === 1 ? "" : "s"}`
+                    : STATUS_LABEL[doc.status]}
+                </span>
+              </div>
+              {doc.error && (
+                <p className="mt-1 text-xs text-black/60 dark:text-white/60">{doc.error}</p>
+              )}
             </li>
           ))}
         </ul>

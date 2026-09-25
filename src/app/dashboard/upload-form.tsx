@@ -9,6 +9,7 @@ type State =
   | { phase: "idle" }
   | { phase: "uploading"; progress: number }
   | { phase: "saving" }
+  | { phase: "processing" }
   | { phase: "error"; message: string };
 
 export function UploadForm() {
@@ -42,9 +43,24 @@ export function UploadForm() {
         body: JSON.stringify({ url: blob.url, filename: file.name }),
       });
       if (!res.ok) throw new Error((await res.json()).error ?? "Could not save document");
+      const { document } = await res.json();
+
+      // Extraction + embedding. The document row already exists, so a failure
+      // here is recorded against it rather than losing the upload.
+      setState({ phase: "processing" });
+      const processed = await fetch(`/api/documents/${document._id}/process`, {
+        method: "POST",
+      });
 
       setState({ phase: "idle" });
       router.refresh();
+
+      if (!processed.ok) {
+        setState({
+          phase: "error",
+          message: (await processed.json()).error ?? "Could not process that PDF",
+        });
+      }
     } catch (err) {
       setState({
         phase: "error",
@@ -53,7 +69,8 @@ export function UploadForm() {
     }
   }
 
-  const busy = state.phase === "uploading" || state.phase === "saving";
+  const busy =
+    state.phase === "uploading" || state.phase === "saving" || state.phase === "processing";
 
   return (
     <div className="rounded-lg border border-dashed border-black/20 p-6 dark:border-white/25">
@@ -71,6 +88,7 @@ export function UploadForm() {
       <p aria-live="polite" className="mt-3 text-sm text-black/60 dark:text-white/60">
         {state.phase === "uploading" && `Uploading… ${Math.round(state.progress)}%`}
         {state.phase === "saving" && "Saving…"}
+        {state.phase === "processing" && "Extracting text and building the index…"}
         {state.phase === "error" && (
           <span className="text-red-600 dark:text-red-400">{state.message}</span>
         )}
