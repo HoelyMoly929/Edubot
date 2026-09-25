@@ -1,8 +1,6 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { getCurrentUser } from "@/lib/user";
-
-/** Spec §9: max 50 MB per upload. */
-export const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+import { MAX_UPLOAD_BYTES } from "@/lib/blob";
 
 /**
  * Issues a short-lived token so the browser can upload straight to Vercel Blob.

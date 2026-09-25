@@ -3,8 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { upload } from "@vercel/blob/client";
-
-const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
+import { BLOB_ACCESS, MAX_UPLOAD_BYTES } from "@/lib/blob";
 
 type State =
   | { phase: "idle" }
@@ -30,7 +29,7 @@ export function UploadForm() {
     try {
       setState({ phase: "uploading", progress: 0 });
       const blob = await upload(file.name, file, {
-        access: "public",
+        access: BLOB_ACCESS,
         handleUploadUrl: "/api/blob/upload",
         onUploadProgress: ({ percentage }) =>
           setState({ phase: "uploading", progress: percentage }),
