@@ -24,6 +24,21 @@ function connect(): Promise<Db> {
   // Database name comes from the connection string.
   return new MongoClient(uri)
     .connect()
+    .catch((err: Error) => {
+      // Atlas accepts the TCP connection then stays silent when the cluster is
+      // paused or the IP isn't allow-listed, so the driver's only symptom is a
+      // 30s timeout. Say what to actually check.
+      if (err.name === "MongoServerSelectionError") {
+        throw new Error(
+          "Could not reach MongoDB. In Atlas, check that the cluster is not PAUSED " +
+            "(Database → Clusters → Resume) and that your IP is allowed " +
+            "(Network Access → 0.0.0.0/0). Access lists are per-project, so make " +
+            `sure it is the project owning this cluster.\nDriver said: ${err.message}`,
+          { cause: err },
+        );
+      }
+      throw err;
+    })
     .then(async (client) => {
       const db = client.db();
       // Atlas's copied URI has no database name, and the driver quietly falls
