@@ -1,18 +1,15 @@
 import { ObjectId } from "mongodb";
-import { chunks as chunksCollection, documents } from "@/lib/db";
+import { documents } from "@/lib/db";
 import { getCurrentUser } from "@/lib/user";
-import { chunkPages } from "@/lib/chunk";
-import { downloadPdf, extractPdf, UnprocessablePdfError } from "@/lib/extract";
-import { embedTexts } from "@/lib/embed";
-import type { Chunk } from "@/lib/schema";
+import { UnprocessablePdfError } from "@/lib/extract";
+import { indexDocument } from "@/lib/process";
 
 /**
- * Runs the RAG indexing pipeline for one document: download → extract → chunk →
- * embed → store (spec §6). Flips the document from "processing" to "ready", or
- * to "failed" with a message the UI can show.
+ * Indexes one document for retrieval, flipping it from "processing" to "ready",
+ * or to "failed" with a message the dashboard shows (spec §9, §11).
  *
- * Kept as its own request rather than run inside the upload so neither call has
- * to hold a connection open for the whole pipeline.
+ * Its own request rather than part of the upload, so neither call has to stay
+ * open for the whole pipeline.
  */
 export async function POST(
   _request: Request,
@@ -32,34 +29,14 @@ export async function POST(
   if (!doc) return Response.json({ error: "Not found" }, { status: 404 });
 
   try {
-    const { pageCount, pages } = await extractPdf(await downloadPdf(doc.blobUrl));
-
-    const drafts = chunkPages(pages);
-    if (drafts.length === 0) {
-      throw new UnprocessablePdfError("No usable text could be extracted from that PDF.");
-    }
-
-    const embeddings = await embedTexts(drafts.map((draft) => draft.text));
-
-    const col = await chunksCollection();
-    // Re-processing replaces the previous index rather than duplicating it.
-    await col.deleteMany({ documentId: doc._id });
-    await col.insertMany(
-      drafts.map<Omit<Chunk, "_id">>((draft, i) => ({
-        documentId: doc._id,
-        text: draft.text,
-        position: draft.position,
-        sourcePage: draft.sourcePage,
-        embedding: embeddings[i],
-      })) as Chunk[],
-    );
+    const { pageCount, chunkCount } = await indexDocument(doc);
 
     await documentsCol.updateOne(
       { _id: doc._id, userId: user._id },
       { $set: { pageCount, status: "ready" }, $unset: { error: "" } },
     );
 
-    return Response.json({ status: "ready", pageCount, chunks: drafts.length });
+    return Response.json({ status: "ready", pageCount, chunks: chunkCount });
   } catch (err) {
     // Only our own validation messages are safe to show the user verbatim.
     const message =
