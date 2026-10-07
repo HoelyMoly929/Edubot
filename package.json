@@ -11,7 +11,8 @@
     "check:db": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/db.check.mts",
     "check:blob": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/blob.check.mts",
     "check:chunk": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/chunk.check.mts",
-    "check:extract": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/extract.check.mts"
+    "check:extract": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/extract.check.mts",
+    "check:retrieve": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/retrieve.check.mts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.9.4",

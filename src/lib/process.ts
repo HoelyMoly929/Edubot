@@ -1,4 +1,4 @@
-import { chunks as chunksCollection } from "./db.ts";
+import { chunks as chunksCollection, summaries as summariesCollection } from "./db.ts";
 import { chunkPages } from "./chunk.ts";
 import { downloadPdf, extractPdf, UnprocessablePdfError } from "./extract.ts";
 import { embedTexts } from "./embed.ts";
@@ -26,6 +26,11 @@ export async function indexDocument(
   const col = await chunksCollection();
   // Re-indexing replaces the previous chunks rather than duplicating them.
   await col.deleteMany({ documentId: doc._id });
+
+  // Replacement chunks get fresh _ids, so anything citing the old ones is now
+  // dangling. Summaries are cheap to regenerate; broken citations are not
+  // acceptable (spec §9).
+  await (await summariesCollection()).deleteMany({ documentId: doc._id });
   await col.insertMany(
     drafts.map<Omit<Chunk, "_id">>((draft, i) => ({
       documentId: doc._id,

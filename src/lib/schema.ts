@@ -60,7 +60,12 @@ export interface Chunk {
 export interface Summary {
   _id: ObjectId;
   documentId: ObjectId;
-  points: { text: string; chunkId: ObjectId }[];
+  points: {
+    text: string;
+    chunkId: ObjectId;
+    /** Copied from the chunk so rendering a citation needs no second lookup. */
+    sourcePage: number;
+  }[];
   createdAt: Date;
 }
 
