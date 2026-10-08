@@ -43,37 +43,47 @@ export const DIFFICULTY_BRIEF: Record<Difficulty, string> = {
   hard: "Application or analysis level. Ask the student to apply a principle, compare two ideas, or infer a consequence. Distractors are near-misses — common misconceptions, or true statements that don't answer the question.",
 };
 
-const RESPONSE_SCHEMA = {
-  type: "object",
-  properties: {
-    questions: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          stem: { type: "string", description: "The question. Self-contained." },
-          options: {
-            type: "array",
-            description: `Exactly ${OPTIONS_PER_QUESTION} answer options.`,
-            items: { type: "string" },
+/**
+ * Built per call so `source` can only be an excerpt number that exists. Given a
+ * label like `[3] (page 21)` the model will otherwise answer with the page
+ * number; those questions were correctly dropped as unresolvable, but dropping
+ * them silently costs questions. Constrain the value instead.
+ */
+function responseSchema(excerptCount: number) {
+  return {
+    type: "object",
+    properties: {
+      questions: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            stem: { type: "string", description: "The question. Self-contained." },
+            options: {
+              type: "array",
+              description: `Exactly ${OPTIONS_PER_QUESTION} answer options.`,
+              items: { type: "string" },
+            },
+            correctIndex: {
+              type: "integer",
+              description: "0-based index of the correct option.",
+              enum: Array.from({ length: OPTIONS_PER_QUESTION }, (_, i) => i),
+            },
+            source: {
+              type: "integer",
+              description: "Number of the excerpt this question is answerable from.",
+              enum: Array.from({ length: excerptCount }, (_, i) => i + 1),
+            },
           },
-          correctIndex: {
-            type: "integer",
-            description: "0-based index of the correct option.",
-          },
-          source: {
-            type: "integer",
-            description: "Number of the excerpt this question is answerable from.",
-          },
+          required: ["stem", "options", "correctIndex", "source"],
+          additionalProperties: false,
         },
-        required: ["stem", "options", "correctIndex", "source"],
-        additionalProperties: false,
       },
     },
-  },
-  required: ["questions"],
-  additionalProperties: false,
-} as const;
+    required: ["questions"],
+    additionalProperties: false,
+  };
+}
 
 function systemPrompt(count: number, difficulty: Difficulty): string {
   return `You write multiple-choice questions from course material.
@@ -105,8 +115,10 @@ export async function generateQuestions(
 ): Promise<QuestionDraft[]> {
   if (retrieved.length === 0) return [];
 
+  // No page number beside the index — that is what the model mistakes for the
+  // citation. The page is attached from the chunk afterwards.
   const excerpts = retrieved
-    .map(({ chunk }, i) => `[${i + 1}] (page ${chunk.sourcePage})\n${chunk.text}`)
+    .map(({ chunk }, i) => `[${i + 1}]\n${chunk.text}`)
     .join("\n\n");
 
   const response = await getClient().chat.completions.create({
@@ -119,7 +131,11 @@ export async function generateQuestions(
     ],
     response_format: {
       type: "json_schema",
-      json_schema: { name: "mcq_set", strict: true, schema: RESPONSE_SCHEMA },
+      json_schema: {
+        name: "mcq_set",
+        strict: true,
+        schema: responseSchema(retrieved.length),
+      },
     },
   });
 

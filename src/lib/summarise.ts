@@ -37,28 +37,40 @@ Rules:
  * here, so a citation can only ever point at a chunk that was actually supplied
  * — the model has no way to invent one (spec §9 requires traceability).
  */
-const RESPONSE_SCHEMA = {
-  type: "object",
-  properties: {
-    points: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          text: { type: "string", description: "The study note." },
-          source: {
-            type: "integer",
-            description: "Number of the excerpt this point came from.",
+/**
+ * Built per call so `source` is an enum of the excerpt numbers that actually
+ * exist. Under strict structured outputs the model cannot emit anything else.
+ *
+ * This matters: given excerpts labelled `[3] (page 21)`, the model will happily
+ * answer with the *page* number. Those citations were correctly dropped as
+ * unresolvable, but that silently cost half the summary. Constraining the value
+ * fixes it at the source instead of discarding the output.
+ */
+function responseSchema(excerptCount: number) {
+  return {
+    type: "object",
+    properties: {
+      points: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            text: { type: "string", description: "The study note." },
+            source: {
+              type: "integer",
+              description: "Number of the excerpt this point came from.",
+              enum: Array.from({ length: excerptCount }, (_, i) => i + 1),
+            },
           },
+          required: ["text", "source"],
+          additionalProperties: false,
         },
-        required: ["text", "source"],
-        additionalProperties: false,
       },
     },
-  },
-  required: ["points"],
-  additionalProperties: false,
-} as const;
+    required: ["points"],
+    additionalProperties: false,
+  };
+}
 
 /**
  * Generates source-grounded study notes from retrieved chunks.
@@ -69,8 +81,11 @@ const RESPONSE_SCHEMA = {
 export async function generateSummary(retrieved: ScoredChunk[]): Promise<SummaryPoint[]> {
   if (retrieved.length === 0) return [];
 
+  // No page number here on purpose: a second number beside the excerpt index is
+  // exactly what the model mistakes for the citation. The page is attached from
+  // the chunk afterwards, so the model never needs to know it.
   const excerpts = retrieved
-    .map(({ chunk }, i) => `[${i + 1}] (page ${chunk.sourcePage})\n${chunk.text}`)
+    .map(({ chunk }, i) => `[${i + 1}]\n${chunk.text}`)
     .join("\n\n");
 
   const response = await getClient().chat.completions.create({
@@ -83,7 +98,11 @@ export async function generateSummary(retrieved: ScoredChunk[]): Promise<Summary
     ],
     response_format: {
       type: "json_schema",
-      json_schema: { name: "study_notes", strict: true, schema: RESPONSE_SCHEMA },
+      json_schema: {
+        name: "study_notes",
+        strict: true,
+        schema: responseSchema(retrieved.length),
+      },
     },
   });
 
