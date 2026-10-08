@@ -7,7 +7,7 @@ import {
   MAX_QUESTIONS,
   MIN_QUESTIONS,
   QUIZ_QUERY,
-  generateQuestions,
+  generateQuizPool,
 } from "@/lib/quiz";
 import type { PdfDocument, Question, Quiz } from "@/lib/schema";
 
@@ -75,8 +75,9 @@ export async function POST(
       return Response.json({ error: "That document has no indexed text." }, { status: 409 });
     }
 
-    // Spec §7: every quiz starts at medium.
-    const drafts = await generateQuestions(retrieved, count, "medium");
+    // Pool spans easy/medium/hard so the adaptive engine has somewhere to move;
+    // the attempt itself still starts at medium (spec §7).
+    const drafts = await generateQuizPool(retrieved, count);
 
     // Dropping malformed questions can leave too few to be a quiz at all.
     if (drafts.length < MIN_QUESTIONS) {

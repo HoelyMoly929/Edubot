@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import type { ObjectId } from "mongodb";
 import type { ScoredChunk } from "./retrieve.ts";
 import { GENERATION_MODEL } from "./summarise.ts";
-import type { Difficulty } from "./schema.ts";
+import { DIFFICULTIES, type Difficulty } from "./schema.ts";
 
 /** Spec §2: 10–20 questions per quiz. */
 export const MIN_QUESTIONS = 10;
@@ -160,4 +160,36 @@ export async function generateQuestions(
       },
     ];
   });
+}
+
+/**
+ * Builds the question pool for one quiz, spread across all three difficulties.
+ *
+ * The adaptive engine (spec §7) can move to any level mid-attempt, so the pool
+ * has to already contain questions at every level — generating them on demand
+ * would stall the student mid-quiz waiting on the model.
+ *
+ * One request per difficulty rather than one request asking for a mix: each
+ * gets the focused Bloom's-level brief, instead of the model self-labelling
+ * difficulty, which it does inconsistently.
+ */
+export async function generateQuizPool(
+  retrieved: ScoredChunk[],
+  total: number = DEFAULT_QUESTION_COUNT,
+): Promise<QuestionDraft[]> {
+  if (retrieved.length === 0) return [];
+
+  // Split as evenly as possible, giving any remainder to the earlier levels.
+  const base = Math.floor(total / DIFFICULTIES.length);
+  const remainder = total % DIFFICULTIES.length;
+  const perLevel = DIFFICULTIES.map((level, i) => ({
+    level,
+    count: base + (i < remainder ? 1 : 0),
+  })).filter(({ count }) => count > 0);
+
+  const batches = await Promise.all(
+    perLevel.map(({ level, count }) => generateQuestions(retrieved, count, level)),
+  );
+
+  return batches.flat();
 }
