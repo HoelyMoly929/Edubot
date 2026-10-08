@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { CitedPoint } from "@/lib/queries";
+import { formatPages, formatPagesLong } from "@/lib/pages";
 
 interface Props {
   documentId: string;
@@ -80,7 +81,7 @@ export function SummaryPanel({ documentId, initialSummary }: Props) {
                     className="rail-label cursor-pointer hover:text-source"
                     title="Show the text this came from"
                   >
-                    p. {point.sourcePage}
+                    {formatPages(point.sourcePage, point.endPage)}
                     <span aria-hidden className="ml-1 inline-block">
                       {open ? "−" : "+"}
                     </span>
@@ -93,7 +94,7 @@ export function SummaryPanel({ documentId, initialSummary }: Props) {
                   {open && (
                     <blockquote className="mt-3 border-l-2 border-source pl-4 text-sm leading-relaxed text-muted">
                       <span className="rail-label block text-source">
-                        From your document, page {point.sourcePage}
+                        From your document, {formatPagesLong(point.sourcePage, point.endPage)}
                       </span>
                       <span className="mt-2 block whitespace-pre-wrap">
                         {point.sourceText || "This excerpt is no longer available."}

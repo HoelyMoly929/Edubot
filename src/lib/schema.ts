@@ -51,7 +51,13 @@ export interface Chunk {
   documentId: ObjectId;
   text: string;
   position: number;
+  /** First page this chunk draws on. */
   sourcePage: number;
+  /**
+   * Last page it draws on. Optional because chunks indexed before page ranges
+   * existed have no value; callers fall back to sourcePage.
+   */
+  endPage?: number;
   /** text-embedding-3-small output: 1536 dimensions. */
   embedding: number[];
 }
@@ -65,6 +71,7 @@ export interface Summary {
     chunkId: ObjectId;
     /** Copied from the chunk so rendering a citation needs no second lookup. */
     sourcePage: number;
+    endPage?: number;
   }[];
   createdAt: Date;
 }
@@ -172,6 +179,7 @@ export const SETUP: Record<CollectionName, CollectionSetup> = {
       text: string,
       position: number,
       sourcePage: number,
+      endPage: number,
       embedding: { bsonType: "array", items: number },
     },
   },

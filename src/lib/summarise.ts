@@ -13,6 +13,7 @@ export interface SummaryPoint {
   text: string;
   chunkId: ObjectId;
   sourcePage: number;
+  endPage?: number;
 }
 
 let client: OpenAI | undefined;
@@ -120,6 +121,7 @@ export async function generateSummary(retrieved: ScoredChunk[]): Promise<Summary
         text: text.trim(),
         chunkId: cited.chunk._id,
         sourcePage: cited.chunk.sourcePage,
+        endPage: cited.chunk.endPage,
       },
     ];
   });

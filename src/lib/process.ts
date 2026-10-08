@@ -53,6 +53,7 @@ export async function indexDocument(
       text: draft.text,
       position: draft.position,
       sourcePage: draft.sourcePage,
+      endPage: draft.endPage,
       embedding: embeddings[i],
     })) as Chunk[],
   );

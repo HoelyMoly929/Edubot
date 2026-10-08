@@ -42,6 +42,7 @@ export interface CitedPoint {
   text: string;
   chunkId: string;
   sourcePage: number;
+  endPage?: number;
   /** The excerpt this point was generated from, for verifying it (spec §9). */
   sourceText: string;
 }
@@ -63,7 +64,7 @@ export async function getSummaryWithSources(documentId: ObjectId): Promise<{
   const sources = await (await chunks())
     .find({ _id: { $in: summary.points.map((point) => point.chunkId) } })
     .toArray();
-  const textById = new Map(sources.map((chunk) => [chunk._id.toString(), chunk.text]));
+  const byId = new Map(sources.map((chunk) => [chunk._id.toString(), chunk]));
 
   return {
     createdAt: summary.createdAt,
@@ -71,7 +72,9 @@ export async function getSummaryWithSources(documentId: ObjectId): Promise<{
       text: point.text,
       chunkId: point.chunkId.toString(),
       sourcePage: point.sourcePage,
-      sourceText: textById.get(point.chunkId.toString()) ?? "",
+      // Prefer the chunk's own range; stored points predate the field.
+      endPage: byId.get(point.chunkId.toString())?.endPage ?? point.endPage,
+      sourceText: byId.get(point.chunkId.toString())?.text ?? "",
     })),
   };
 }

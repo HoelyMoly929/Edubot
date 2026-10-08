@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { formatPagesLong } from "@/lib/pages";
 
 type Difficulty = "easy" | "medium" | "hard";
 
@@ -15,7 +16,7 @@ interface Question {
 interface Marked {
   correct: boolean;
   correctOption: number;
-  citation: { sourcePage: number; text: string } | null;
+  citation: { sourcePage: number; endPage?: number; text: string } | null;
 }
 
 interface Pending {
@@ -226,7 +227,8 @@ export function QuizRunner({
             {marked.citation && (
               <blockquote className="mt-3 border-l-2 border-source pl-4 text-sm leading-relaxed text-muted">
                 <span className="rail-label block text-source">
-                  Why — from your document, page {marked.citation.sourcePage}
+                  Why — from your document,{" "}
+                  {formatPagesLong(marked.citation.sourcePage, marked.citation.endPage)}
                 </span>
                 <span className="mt-2 block whitespace-pre-wrap">{marked.citation.text}</span>
               </blockquote>

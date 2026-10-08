@@ -86,7 +86,12 @@ export async function POST(
     correct,
     correctOption: question.correctOption,
     citation: source
-      ? { chunkId: source._id, sourcePage: source.sourcePage, text: source.text }
+      ? {
+          chunkId: source._id,
+          sourcePage: source.sourcePage,
+          endPage: source.endPage,
+          text: source.text,
+        }
       : null,
     score,
     difficulty: nextDifficulty,

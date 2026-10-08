@@ -17,7 +17,14 @@ export interface PageText {
 export interface ChunkDraft {
   text: string;
   position: number;
+  /** First page contributing content to this chunk. */
   sourcePage: number;
+  /**
+   * Last page contributing content. Equal to sourcePage for dense prose, but a
+   * slide deck packs ~55 words a page, so one chunk can span 7-8 slides and a
+   * single page number would point a reader at the wrong slide.
+   */
+  endPage: number;
 }
 
 export interface ChunkOptions {
@@ -91,7 +98,8 @@ function tailWords(text: string, count: number): string {
  *
  * `sourcePage` is the page the chunk's *new* content starts on — overlap carried
  * from the previous chunk doesn't move the citation, otherwise a chunk would be
- * attributed to the page before the one it's actually about.
+ * attributed to the page before the one it's actually about. `endPage` is the
+ * last page it draws on, so a citation can name the real range.
  */
 export function chunkPages(pages: PageText[], options: ChunkOptions = {}): ChunkDraft[] {
   const targetWords = options.targetWords ?? DEFAULT_TARGET_WORDS;
@@ -113,13 +121,17 @@ export function chunkPages(pages: PageText[], options: ChunkOptions = {}): Chunk
   let buffer: string[] = [];
   let bufferWords = 0;
   let pageOfNewContent: number | null = null;
+  let lastPage: number | null = null;
 
   const flush = () => {
     if (buffer.length === 0) return;
+    const start = pageOfNewContent ?? pages[0]?.page ?? 1;
     chunks.push({
       text: buffer.join("\n\n"),
       position: chunks.length,
-      sourcePage: pageOfNewContent ?? pages[0]?.page ?? 1,
+      sourcePage: start,
+      // Never let the range run backwards if a chunk is pure overlap.
+      endPage: Math.max(lastPage ?? start, start),
     });
   };
 
@@ -131,12 +143,16 @@ export function chunkPages(pages: PageText[], options: ChunkOptions = {}): Chunk
       const overlap = tailWords(buffer.join(" "), overlapWords);
       buffer = overlap ? [overlap] : [];
       bufferWords = countWords(overlap);
+      // Overlap text belongs to the previous chunk's pages, so the new chunk's
+      // range starts from its first genuinely new unit.
       pageOfNewContent = null;
+      lastPage = null;
     }
 
     buffer.push(unit.text);
     bufferWords += words;
     pageOfNewContent ??= unit.page;
+    lastPage = unit.page;
   }
 
   flush();

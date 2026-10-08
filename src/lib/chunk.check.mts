@@ -103,6 +103,36 @@ assert.ok(
 // Pages are 1-based from the extractor; never invent a page 0.
 assert.ok(multi.every((c) => c.sourcePage >= 1), "sourcePage must stay 1-based");
 
+// --- page ranges ----------------------------------------------------------
+
+// A chunk must never claim a range it doesn't cover.
+for (const chunk of multi) {
+  assert.ok(chunk.endPage >= chunk.sourcePage, "endPage cannot precede sourcePage");
+}
+
+// Sparse pages (a slide deck) pack many pages into one chunk; the range has to
+// widen, or a citation points at the wrong slide.
+const slides: PageText[] = Array.from({ length: 10 }, (_, i) => ({
+  page: i + 1,
+  text: lorem(20, `s${i}`),
+}));
+const packed = chunkPages(slides, { targetWords: 200 });
+assert.ok(packed.length >= 1);
+assert.ok(
+  packed.some((chunk) => chunk.endPage > chunk.sourcePage),
+  "a chunk spanning several sparse pages must report a range, not one page",
+);
+assert.equal(packed[0].sourcePage, 1, "first chunk starts on the first page");
+assert.ok(
+  Math.max(...packed.map((c) => c.endPage)) <= 10,
+  "range must stay inside the document",
+);
+
+// Dense prose that fits one page should stay a single page, not fake a range.
+const dense = chunkPages([{ page: 4, text: lorem(60) }], { targetWords: 500 });
+assert.equal(dense[0].sourcePage, 4);
+assert.equal(dense[0].endPage, 4, "a single-page chunk must not report a range");
+
 console.log(
-  `OK — chunker honours spec §6 (target ${DEFAULT_TARGET_WORDS} words, ${DEFAULT_OVERLAP_RATIO * 100}% overlap)`,
+  `OK — chunker honours spec §6 (target ${DEFAULT_TARGET_WORDS} words, ${DEFAULT_OVERLAP_RATIO * 100}% overlap, page ranges tracked)`,
 );
