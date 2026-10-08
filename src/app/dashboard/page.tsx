@@ -1,61 +1,70 @@
+import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
-import { documents } from "@/lib/db";
-import { getCurrentUser } from "@/lib/user";
+import { listDocuments } from "@/lib/queries";
 import { UploadForm } from "./upload-form";
 
-const STATUS_LABEL = {
-  processing: "Extracting text…",
-  ready: "Ready",
-  failed: "Failed",
+const STATUS = {
+  processing: { label: "Reading", tone: "text-muted" },
+  ready: { label: "Ready", tone: "text-source" },
+  failed: { label: "Can't use", tone: "text-wrong" },
 } as const;
 
 export default async function DashboardPage() {
   await auth.protect();
-
-  const user = await getCurrentUser();
-  const docs = user
-    ? await (await documents())
-        .find({ userId: user._id })
-        .sort({ uploadedAt: -1 })
-        .toArray()
-    : [];
+  const docs = await listDocuments();
 
   return (
-    <div className="mx-auto w-full max-w-3xl p-6">
-      <h1 className="text-2xl font-semibold">Your documents</h1>
-      <p className="mt-1 text-sm text-black/60 dark:text-white/60">{user?.email}</p>
+    <div className="mx-auto w-full max-w-5xl px-6 py-12">
+      <h1 className="display text-3xl font-semibold">Your documents</h1>
+      <p className="mt-2 max-w-prose text-muted">
+        Upload a lecture PDF to get study notes and a quiz built from it — each
+        one linked back to the page it came from.
+      </p>
 
-      <div className="mt-6">
+      <div className="mt-8">
         <UploadForm />
       </div>
 
       {docs.length === 0 ? (
-        <p className="mt-6 text-sm text-black/60 dark:text-white/60">
-          Nothing uploaded yet.
+        <p className="mt-12 text-muted">
+          Nothing here yet. Your first upload will appear in this list.
         </p>
       ) : (
-        <ul className="mt-6 divide-y divide-black/10 dark:divide-white/15">
-          {docs.map((doc) => (
-            <li key={doc._id.toString()} className="py-3">
-              <div className="flex items-center justify-between gap-4">
-                <span className="truncate text-sm">{doc.filename}</span>
-                <span
-                  className={`shrink-0 text-xs ${
-                    doc.status === "failed"
-                      ? "text-red-600 dark:text-red-400"
-                      : "text-black/60 dark:text-white/60"
-                  }`}
+        <ul className="mt-12">
+          {docs.map((doc) => {
+            const status = STATUS[doc.status];
+            return (
+              <li key={doc._id.toString()} className="border-t border-rule">
+                <Link
+                  href={`/documents/${doc._id}`}
+                  className="group grid grid-cols-[5rem_1fr] gap-x-5 py-5 sm:grid-cols-[7rem_1fr]"
                 >
-                  {doc.status === "ready" && doc.pageCount
-                    ? `Ready · ${doc.pageCount} page${doc.pageCount === 1 ? "" : "s"}`
-                    : STATUS_LABEL[doc.status]}
-                </span>
-              </div>
-              {doc.error && (
-                <p className="mt-1 text-xs text-black/60 dark:text-white/60">{doc.error}</p>
-              )}
-            </li>
-          ))}
+                  {/* Margin rail: status and extent, in the annotation voice. */}
+                  <div className="rail-label pt-1">
+                    <span className={status.tone}>{status.label}</span>
+                    {doc.pageCount ? <div className="mt-1">{doc.pageCount} pp</div> : null}
+                  </div>
+
+                  <div className="min-w-0">
+                    <span className="block truncate text-lg group-hover:text-source">
+                      {doc.filename}
+                    </span>
+                    {doc.error ? (
+                      <p className="mt-1 max-w-prose text-sm text-muted">{doc.error}</p>
+                    ) : (
+                      <p className="mt-1 text-sm text-muted">
+                        {doc.uploadedAt.toLocaleDateString(undefined, {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

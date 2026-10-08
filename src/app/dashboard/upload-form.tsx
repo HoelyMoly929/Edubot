@@ -12,6 +12,13 @@ type State =
   | { phase: "processing" }
   | { phase: "error"; message: string };
 
+// Spec §9: processing never blocks the page, so each stage names itself.
+const BUSY_LABEL = {
+  uploading: "Uploading",
+  saving: "Saving",
+  processing: "Reading the text",
+} as const;
+
 export function UploadForm() {
   const router = useRouter();
   const [state, setState] = useState<State>({ phase: "idle" });
@@ -21,9 +28,11 @@ export function UploadForm() {
     event.target.value = ""; // let the same file be picked again after an error
     if (!file) return;
 
-    // Checked again server-side; this just avoids a pointless 50 MB round trip.
     if (file.size > MAX_UPLOAD_BYTES) {
-      setState({ phase: "error", message: "That file is over the 50 MB limit." });
+      setState({
+        phase: "error",
+        message: `That file is ${(file.size / 1024 / 1024).toFixed(0)} MB. The limit is 50 MB.`,
+      });
       return;
     }
 
@@ -37,16 +46,16 @@ export function UploadForm() {
       });
 
       setState({ phase: "saving" });
-      const res = await fetch("/api/documents", {
+      const saved = await fetch("/api/documents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: blob.url, filename: file.name }),
       });
-      if (!res.ok) throw new Error((await res.json()).error ?? "Could not save document");
-      const { document } = await res.json();
+      if (!saved.ok) throw new Error((await saved.json()).error ?? "Couldn't save that file");
+      const { document } = await saved.json();
 
-      // Extraction + embedding. The document row already exists, so a failure
-      // here is recorded against it rather than losing the upload.
+      // The document row exists now, so a failure here is recorded against it
+      // rather than losing the upload.
       setState({ phase: "processing" });
       const processed = await fetch(`/api/documents/${document._id}/process`, {
         method: "POST",
@@ -58,13 +67,13 @@ export function UploadForm() {
       if (!processed.ok) {
         setState({
           phase: "error",
-          message: (await processed.json()).error ?? "Could not process that PDF",
+          message: (await processed.json()).error ?? "Couldn't read that PDF",
         });
       }
     } catch (err) {
       setState({
         phase: "error",
-        message: err instanceof Error ? err.message : "Upload failed",
+        message: err instanceof Error ? err.message : "The upload didn't finish",
       });
     }
   }
@@ -73,26 +82,40 @@ export function UploadForm() {
     state.phase === "uploading" || state.phase === "saving" || state.phase === "processing";
 
   return (
-    <div className="rounded-lg border border-dashed border-black/20 p-6 dark:border-white/25">
-      <label className="flex cursor-pointer flex-col items-start gap-2">
-        <span className="text-sm font-medium">Upload a PDF</span>
+    <div className="rounded-lg border border-dashed border-rule bg-raised p-6">
+      <label className="flex flex-wrap items-center gap-4">
+        <span className="sr-only">Choose a PDF</span>
         <input
           type="file"
           accept="application/pdf"
           onChange={onChange}
           disabled={busy}
-          className="text-sm file:mr-3 file:cursor-pointer file:rounded-full file:border-0 file:bg-foreground file:px-4 file:py-1.5 file:text-background disabled:opacity-50"
+          className="max-w-full text-sm disabled:opacity-50 file:mr-4 file:cursor-pointer file:rounded-full file:border-0 file:bg-ink file:px-5 file:py-2 file:text-paper"
         />
+        {busy && (
+          <span className="rail-label" aria-hidden>
+            {BUSY_LABEL[state.phase as keyof typeof BUSY_LABEL]}
+            {state.phase === "uploading" && ` ${Math.round(state.progress)}%`}
+          </span>
+        )}
       </label>
 
-      <p aria-live="polite" className="mt-3 text-sm text-black/60 dark:text-white/60">
-        {state.phase === "uploading" && `Uploading… ${Math.round(state.progress)}%`}
-        {state.phase === "saving" && "Saving…"}
-        {state.phase === "processing" && "Extracting text and building the index…"}
-        {state.phase === "error" && (
-          <span className="text-red-600 dark:text-red-400">{state.message}</span>
+      {/* One live region, so a screen reader hears each stage without the
+          status text shifting the layout. */}
+      <p aria-live="polite" className="mt-3 text-sm">
+        {state.phase === "idle" && (
+          <span className="text-muted">
+            PDFs up to 50 MB, in English, with text you can select.
+          </span>
         )}
-        {state.phase === "idle" && "Text PDFs up to 50 MB. English only."}
+        {state.phase === "uploading" && (
+          <span className="text-muted">Uploading… {Math.round(state.progress)}%</span>
+        )}
+        {state.phase === "saving" && <span className="text-muted">Saving…</span>}
+        {state.phase === "processing" && (
+          <span className="text-muted">Reading the text and building the index…</span>
+        )}
+        {state.phase === "error" && <span className="text-wrong">{state.message}</span>}
       </p>
     </div>
   );

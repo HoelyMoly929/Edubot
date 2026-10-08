@@ -1,26 +1,100 @@
 @import "tailwindcss";
 
+/*
+ * EduBot — "marginalia": ink on paper, with a margin rail carrying provenance.
+ * The highlighter yellow is the only bright colour in the system and is spent
+ * exclusively on the current question / active source, so it always means
+ * "here".
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --paper: #f6f5f0;
+  --raised: #fffefb;
+  --ink: #17212b;
+  --ink-muted: #5c6875;
+  --rule: #dddbd1;
+  --highlight: #ebdf4a;
+  --source: #15635e;
+  --wrong: #a33a2b;
+  /* On paper a highlighter is opaque; the ink stays dark and readable. */
+  --marker-strength: 62%;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --paper: #12161c;
+    --raised: #181d25;
+    --ink: #e9e7e0;
+    --ink-muted: #98a2ae;
+    --rule: #2a313b;
+    --highlight: #d4c73a;
+    --source: #54b6ab;
+    --wrong: #e08274;
+    /* In the dark, the same opacity turns light text into olive-on-olive.
+       Drop it to a wash so the stroke still reads as emphasis. */
+    --marker-strength: 26%;
   }
 }
 
+@theme inline {
+  --color-paper: var(--paper);
+  --color-raised: var(--raised);
+  --color-ink: var(--ink);
+  --color-muted: var(--ink-muted);
+  --color-rule: var(--rule);
+  --color-highlight: var(--highlight);
+  --color-source: var(--source);
+  --color-wrong: var(--wrong);
+
+  --font-display: var(--font-fraunces);
+  --font-sans: var(--font-source-serif);
+  --font-mono: var(--font-geist-mono);
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--font-source-serif), Georgia, serif;
+}
+
+/* The display face carries the page's personality; keep it optically tight. */
+.display {
+  font-family: var(--font-fraunces), Georgia, serif;
+  font-optical-sizing: auto;
+  letter-spacing: -0.02em;
+}
+
+/*
+ * Margin rail labels: small, monospaced, uppercase. This is the "annotation"
+ * voice — it should never read as body copy.
+ */
+.rail-label {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+}
+
+/* A real highlighter stroke, not a coloured box — it sits behind the text. */
+.marker {
+  background-image: linear-gradient(
+    to bottom,
+    transparent 10%,
+    color-mix(in srgb, var(--highlight) var(--marker-strength), transparent) 10%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--source);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
