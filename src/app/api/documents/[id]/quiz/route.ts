@@ -11,6 +11,10 @@ import {
 } from "@/lib/quiz";
 import type { PdfDocument, Question, Quiz } from "@/lib/schema";
 
+// Model calls (and for processing, extracting and embedding a large PDF) can
+// outlast the platform default. 300s is the ceiling on Vercel's free tier.
+export const maxDuration = 300;
+
 async function authorise(idParam: string): Promise<PdfDocument | Response> {
   const user = await getCurrentUser();
   if (!user) return Response.json({ error: "Unauthorized" }, { status: 401 });

@@ -4,6 +4,10 @@ import { getCurrentUser } from "@/lib/user";
 import { UnprocessablePdfError } from "@/lib/extract";
 import { indexDocument } from "@/lib/process";
 
+// Model calls (and for processing, extracting and embedding a large PDF) can
+// outlast the platform default. 300s is the ceiling on Vercel's free tier.
+export const maxDuration = 300;
+
 /**
  * Indexes one document for retrieval, flipping it from "processing" to "ready",
  * or to "failed" with a message the dashboard shows (spec §9, §11).

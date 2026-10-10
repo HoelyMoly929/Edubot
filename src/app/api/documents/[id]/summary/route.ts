@@ -5,6 +5,10 @@ import { retrieveChunks } from "@/lib/retrieve";
 import { generateSummary, SUMMARY_QUERY } from "@/lib/summarise";
 import type { PdfDocument, Summary, User } from "@/lib/schema";
 
+// Model calls (and for processing, extracting and embedding a large PDF) can
+// outlast the platform default. 300s is the ceiling on Vercel's free tier.
+export const maxDuration = 300;
+
 /** Loads a document only if it belongs to the caller (spec §9). */
 async function authorise(
   idParam: string,
