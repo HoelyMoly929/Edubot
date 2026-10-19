@@ -7,6 +7,9 @@ interface QuizRow {
   _id: string;
   questionCount: number;
   createdAt: string;
+  /** Best finished score, 0–1, or null if never finished. */
+  bestScore: number | null;
+  attempts: number;
 }
 
 export function QuizPanel({
@@ -81,22 +84,41 @@ export function QuizPanel({
           {initialQuizzes.map((quiz) => (
             <li
               key={quiz._id}
-              className="grid grid-cols-[3.5rem_1fr_auto] items-center gap-x-5 border-b border-rule py-4 sm:grid-cols-[6rem_1fr_auto]"
+              className="grid grid-cols-[4.5rem_1fr_auto] items-center gap-x-4 border-b border-rule py-4 sm:grid-cols-[6rem_1fr_auto] sm:gap-x-5"
             >
-              <span className="rail-label">{quiz.questionCount} Qs</span>
-              <span className="text-muted">
-                {new Date(quiz.createdAt).toLocaleDateString(undefined, {
-                  day: "numeric",
-                  month: "short",
-                  year: "numeric",
-                })}
-              </span>
+              {/* Rail leads with the result once there is one. */}
+              <div>
+                {quiz.bestScore === null ? (
+                  <span className="rail-label">Not taken</span>
+                ) : (
+                  <>
+                    <div className="font-mono text-xl leading-none">
+                      {Math.round(quiz.bestScore * 100)}%
+                    </div>
+                    <div className="rail-label mt-1">best</div>
+                  </>
+                )}
+              </div>
+              <div className="min-w-0 text-sm text-muted">
+                <div>
+                  {quiz.questionCount} questions · built{" "}
+                  {new Date(quiz.createdAt).toLocaleDateString(undefined, {
+                    day: "numeric",
+                    month: "short",
+                  })}
+                </div>
+                {quiz.attempts > 0 && (
+                  <div className="mt-0.5">
+                    Taken {quiz.attempts} {quiz.attempts === 1 ? "time" : "times"}
+                  </div>
+                )}
+              </div>
               <button
                 onClick={() => start(quiz._id)}
                 disabled={starting !== null}
                 className="cursor-pointer rounded-full bg-ink px-4 py-1.5 text-sm text-paper disabled:opacity-50"
               >
-                {starting === quiz._id ? "Starting…" : "Start"}
+                {starting === quiz._id ? "Starting…" : quiz.attempts > 0 ? "Retake" : "Start"}
               </button>
             </li>
           ))}

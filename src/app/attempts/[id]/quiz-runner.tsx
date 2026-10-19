@@ -12,12 +12,6 @@ interface Question {
   difficulty: Difficulty;
 }
 
-interface Pending {
-  question: Question | null;
-  difficulty: Difficulty;
-  completed: boolean;
-}
-
 const LEVELS: Difficulty[] = ["easy", "medium", "hard"];
 
 /**
@@ -56,8 +50,9 @@ function DifficultyLadder({
 }
 
 /**
- * The answering phase only. Explanations and sources are deliberately held back
- * until the results screen, so the quiz stays a test rather than an open book.
+ * The answering phase only: pick an option and the next question follows, with
+ * no reveal in between. Marking and explanations wait for the results screen,
+ * so the quiz stays a test and keeps its momentum.
  */
 export function QuizRunner({
   attemptId,
@@ -77,19 +72,15 @@ export function QuizRunner({
   const [difficulty, setDifficulty] = useState<Difficulty>(startingDifficulty);
   const [direction, setDirection] = useState<"up" | "down" | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
-  const [marked, setMarked] = useState<{ correct: boolean; correctOption: number } | null>(
-    null,
-  );
-  const [pending, setPending] = useState<Pending | null>(null);
   const [answered, setAnswered] = useState(answeredSoFar);
-  const [busy, setBusy] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(option: number) {
-    if (marked || busy) return;
+    if (selected !== null || finishing) return;
+    // Acknowledge the click straight away, so the round trip that follows reads
+    // as "saving" rather than as an unresponsive page.
     setSelected(option);
-    setBusy(true);
     setError(null);
     try {
       const res = await fetch(`/api/attempts/${attemptId}/answer`, {
@@ -100,47 +91,36 @@ export function QuizRunner({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "That answer didn't save");
 
-      setMarked({ correct: data.correct, correctOption: data.correctOption });
       setAnswered(data.answered);
-      // Held until "Next": the student sees the mark before anything moves.
-      setPending({
-        question: data.question,
-        difficulty: data.difficulty,
-        completed: data.completed,
-      });
+
+      if (data.completed || !data.question) {
+        // Marked complete server-side; the page now renders the results.
+        setFinishing(true);
+        router.refresh();
+        return;
+      }
+
+      // Direction comes from comparing levels, not from where we landed:
+      // "medium" can be a step up or a step down.
+      const from = LEVELS.indexOf(difficulty);
+      const to = LEVELS.indexOf(data.difficulty as Difficulty);
+      setDirection(to > from ? "up" : to < from ? "down" : null);
+      setDifficulty(data.difficulty);
+      setQuestion(data.question);
+      setSelected(null);
     } catch (err) {
       setSelected(null);
-      setError(err instanceof Error ? err.message : "That answer didn't save");
-    } finally {
-      setBusy(false);
+      setError(err instanceof Error ? `${err.message}. Pick again to retry.` : "That answer didn't save");
     }
   }
 
-  function next() {
-    if (!pending) return;
-
-    if (pending.completed || !pending.question) {
-      // The attempt is marked complete server-side; re-render the page, which
-      // now shows the results and review.
-      setFinishing(true);
-      router.refresh();
-      return;
-    }
-
-    // Direction comes from comparing levels, not from where we landed:
-    // "medium" can be a step up or a step down.
-    const from = LEVELS.indexOf(difficulty);
-    const to = LEVELS.indexOf(pending.difficulty);
-    setDirection(to > from ? "up" : to < from ? "down" : null);
-    setDifficulty(pending.difficulty);
-
-    setQuestion(pending.question);
-    setMarked(null);
-    setSelected(null);
-    setPending(null);
+  if (finishing) {
+    return (
+      <p aria-live="polite" className="text-muted">
+        That&rsquo;s all {total}. Marking your answers…
+      </p>
+    );
   }
-
-  const last = pending?.completed || (pending && !pending.question);
 
   return (
     <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-[6rem_1fr]">
@@ -148,35 +128,35 @@ export function QuizRunner({
       <aside className="sm:sticky sm:top-8 sm:self-start">
         <DifficultyLadder level={difficulty} direction={direction} />
         <div className="rail-label mt-5">
-          {answered} / {total}
+          {Math.min(answered + 1, total)} / {total}
         </div>
       </aside>
 
-      <div>
+      {/* Keyed on the question so each one enters fresh rather than mutating
+          in place, which is what made the swap feel like lag. */}
+      <div key={question._id} className="animate-[fade-in_180ms_ease-out]">
         <h1 className="text-xl leading-snug">{question.stem}</h1>
 
-        <ul className="mt-6 space-y-2">
+        <ul className="mt-6 space-y-2" aria-busy={selected !== null}>
           {question.options.map((option, i) => {
-            const isAnswer = marked?.correctOption === i;
             const isPicked = selected === i;
-
-            let tone = "border-rule hover:border-ink";
-            if (marked) {
-              if (isAnswer) tone = "border-source bg-source/10";
-              else if (isPicked) tone = "border-wrong bg-wrong/10";
-              else tone = "border-rule opacity-60";
-            } else if (isPicked) {
-              tone = "border-ink";
-            }
+            const tone =
+              selected === null
+                ? "border-rule hover:border-ink hover:bg-raised"
+                : isPicked
+                  ? "border-ink bg-ink text-paper"
+                  : "border-rule opacity-40";
 
             return (
               <li key={i}>
                 <button
                   onClick={() => submit(i)}
-                  disabled={marked !== null || busy}
-                  className={`w-full cursor-pointer rounded-md border px-4 py-3 text-left transition-colors ${tone} disabled:cursor-default`}
+                  disabled={selected !== null}
+                  className={`w-full cursor-pointer rounded-md border px-4 py-3 text-left transition-colors duration-150 ${tone} disabled:cursor-default`}
                 >
-                  <span className="rail-label mr-3">{String.fromCharCode(65 + i)}</span>
+                  <span className={`rail-label mr-3 ${isPicked ? "text-paper/70" : ""}`}>
+                    {String.fromCharCode(65 + i)}
+                  </span>
                   {option}
                 </button>
               </li>
@@ -184,22 +164,10 @@ export function QuizRunner({
           })}
         </ul>
 
-        {error && <p className="mt-4 text-sm text-wrong">{error}</p>}
-
-        {marked && (
-          <div aria-live="polite" className="mt-6 flex flex-wrap items-center gap-4">
-            <p className={marked.correct ? "text-source" : "text-wrong"}>
-              {marked.correct ? "Correct." : "Not quite."}
-            </p>
-            <button
-              onClick={next}
-              disabled={finishing}
-              autoFocus
-              className="cursor-pointer rounded-full bg-ink px-5 py-2 text-sm text-paper disabled:opacity-50"
-            >
-              {finishing ? "Loading results…" : last ? "See your results" : "Next question"}
-            </button>
-          </div>
+        {error && (
+          <p role="alert" className="mt-4 text-sm text-wrong">
+            {error}
+          </p>
         )}
       </div>
     </div>

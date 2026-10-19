@@ -214,3 +214,43 @@ export async function getAttemptReview(attempt: QuizAttempt): Promise<ReviewItem
     ];
   });
 }
+
+export interface QuizWithStats {
+  quiz: Quiz;
+  /** Best score across *finished* attempts, 0–1; null if never finished. */
+  bestScore: number | null;
+  /** Finished attempts only — an abandoned run isn't a result. */
+  attempts: number;
+}
+
+/**
+ * A document's quizzes with the caller's best score on each.
+ *
+ * Every Start creates a new attempt and none are overwritten, so "best" is a
+ * max over finished attempts. Unfinished ones are excluded: their score covers
+ * only the questions answered so far, so 2 of 2 would read as 100%.
+ */
+export async function listQuizzesWithStats(documentId: ObjectId): Promise<QuizWithStats[]> {
+  const user = await getCurrentUser();
+  const list = await listQuizzes(documentId);
+  if (!user || list.length === 0) return list.map((quiz) => ({ quiz, bestScore: null, attempts: 0 }));
+
+  const stats = await (await quizAttempts())
+    .aggregate<{ _id: ObjectId; best: number; count: number }>([
+      {
+        $match: {
+          userId: user._id,
+          quizId: { $in: list.map((quiz) => quiz._id) },
+          completedAt: { $exists: true },
+        },
+      },
+      { $group: { _id: "$quizId", best: { $max: "$score" }, count: { $sum: 1 } } },
+    ])
+    .toArray();
+  const byQuiz = new Map(stats.map((s) => [s._id.toString(), s]));
+
+  return list.map((quiz) => {
+    const s = byQuiz.get(quiz._id.toString());
+    return { quiz, bestScore: s?.best ?? null, attempts: s?.count ?? 0 };
+  });
+}

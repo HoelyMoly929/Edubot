@@ -39,11 +39,12 @@ export async function POST(
     return Response.json({ error: "selectedOption must be an integer" }, { status: 400 });
   }
 
-  const questionsCol = await questions();
-  const question = await questionsCol.findOne({
-    _id: new ObjectId(questionId),
-    quizId: attempt.quizId, // must belong to the quiz being attempted
-  });
+  // One query for the whole pool: it's needed to pick the next question anyway,
+  // and finding the answered one in it saves a database round trip on every
+  // answer — the latency a student feels between questions.
+  const pool = await (await questions()).find({ quizId: attempt.quizId }).toArray();
+  // Looking it up in this quiz's pool also enforces that it belongs here.
+  const question = pool.find((q) => q._id.equals(questionId));
   if (!question) return Response.json({ error: "No such question" }, { status: 404 });
 
   if (attempt.responses.some((response) => response.questionId.equals(question._id))) {
@@ -63,7 +64,6 @@ export async function POST(
   const nextDifficulty = adjustDifficulty(attempt.finalDifficulty, rollingScore(responses));
   const score = overallScore(responses);
 
-  const pool = await questionsCol.find({ quizId: attempt.quizId }).toArray();
   const answeredIds = new Set(responses.map((response) => response.questionId.toString()));
   const next = selectNextQuestion(pool, answeredIds, nextDifficulty);
 

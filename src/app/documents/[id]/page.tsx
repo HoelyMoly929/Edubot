@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { auth } from "@clerk/nextjs/server";
-import { getDocument, getSummaryWithSources, listQuizzes } from "@/lib/queries";
+import { getDocument, getSummaryWithSources, listQuizzesWithStats } from "@/lib/queries";
 import { SummaryPanel } from "./summary-panel";
 import { QuizPanel } from "./quiz-panel";
 
@@ -13,7 +13,7 @@ export default async function DocumentPage({ params }: PageProps<"/documents/[id
 
   const [summary, quizzes] = await Promise.all([
     getSummaryWithSources(doc._id),
-    listQuizzes(doc._id),
+    listQuizzesWithStats(doc._id),
   ]);
 
   return (
@@ -59,10 +59,12 @@ export default async function DocumentPage({ params }: PageProps<"/documents/[id
 
           <QuizPanel
             documentId={doc._id.toString()}
-            initialQuizzes={quizzes.map((quiz) => ({
+            initialQuizzes={quizzes.map(({ quiz, bestScore, attempts }) => ({
               _id: quiz._id.toString(),
               questionCount: quiz.questionCount,
               createdAt: quiz.createdAt.toISOString(),
+              bestScore,
+              attempts,
             }))}
           />
         </div>
