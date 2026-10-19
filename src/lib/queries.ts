@@ -8,6 +8,7 @@ import {
   summaries,
 } from "./db.ts";
 import { getCurrentUser } from "./user.ts";
+import { UNNAMED_QUIZ } from "./quiz-name.ts";
 import type { PdfDocument, Quiz, QuizAttempt, Summary } from "./schema.ts";
 
 /**
@@ -112,6 +113,7 @@ export async function getAttempt(id: string): Promise<{
 export interface AttemptSummary {
   attempt: QuizAttempt;
   documentName: string;
+  quizName: string;
   total: number;
 }
 
@@ -145,6 +147,7 @@ export async function listAttempts(): Promise<AttemptSummary[]> {
       attempt,
       // A quiz cleared by re-indexing still leaves its attempt (spec §8).
       documentName: doc?.filename ?? "Removed document",
+      quizName: quiz?.name ?? (quiz ? UNNAMED_QUIZ : "Removed quiz"),
       total: quiz?.questionCount ?? attempt.responses.length,
     };
   });

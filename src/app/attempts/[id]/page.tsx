@@ -9,6 +9,7 @@ import {
 } from "@/lib/queries";
 import { selectNextQuestion } from "@/lib/adaptive";
 import { formatPagesLong } from "@/lib/pages";
+import { UNNAMED_QUIZ } from "@/lib/quiz-name";
 import { QuizRunner } from "./quiz-runner";
 
 export default async function AttemptPage({ params }: PageProps<"/attempts/[id]">) {
@@ -37,6 +38,7 @@ export default async function AttemptPage({ params }: PageProps<"/attempts/[id]"
       <Link href={`/documents/${document._id}`} className="rail-label hover:text-source">
         ← {document.filename}
       </Link>
+      <p className="display mt-3 text-lg font-semibold">{quiz.name ?? UNNAMED_QUIZ}</p>
 
       <div className="mt-8">
         {current ? (

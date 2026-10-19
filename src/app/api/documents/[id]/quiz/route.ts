@@ -95,8 +95,11 @@ export async function POST(
       );
     }
 
+    // Numbered per document, so the first is "Quiz 1". Rename any time.
+    const existing = await (await quizzes()).countDocuments({ documentId: doc._id });
     const quiz: Omit<Quiz, "_id"> = {
       documentId: doc._id,
+      name: `Quiz ${existing + 1}`,
       questionCount: drafts.length,
       createdAt: new Date(),
     };

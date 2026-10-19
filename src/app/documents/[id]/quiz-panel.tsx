@@ -2,14 +2,85 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { MAX_QUIZ_NAME, UNNAMED_QUIZ, cleanQuizName } from "@/lib/quiz-name";
 
 interface QuizRow {
   _id: string;
+  name?: string;
   questionCount: number;
   createdAt: string;
   /** Best finished score, 0–1, or null if never finished. */
   bestScore: number | null;
   attempts: number;
+}
+
+/**
+ * The quiz's name, editable in place. Click to edit; Enter or leaving the field
+ * saves, Escape cancels. Kept local until saved so a failed rename can't leave
+ * the list showing a name the server never accepted.
+ */
+function QuizName({ quizId, initial }: { quizId: string; initial: string }) {
+  const [name, setName] = useState(initial);
+  const [draft, setDraft] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    if (draft === null) return;
+    const cleaned = cleanQuizName(draft);
+    if (!cleaned || cleaned === name) {
+      setDraft(null);
+      setError(cleaned ? null : `Names need 1–${MAX_QUIZ_NAME} characters.`);
+      return;
+    }
+    setDraft(null);
+    const previous = name;
+    setName(cleaned); // show it straight away; roll back if the server refuses
+    const res = await fetch(`/api/quizzes/${quizId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: cleaned }),
+    }).catch(() => null);
+    if (!res?.ok) {
+      setName(previous);
+      setError("Couldn't rename it. Try again.");
+    } else {
+      setError(null);
+    }
+  }
+
+  if (draft !== null) {
+    return (
+      <input
+        autoFocus
+        value={draft}
+        maxLength={MAX_QUIZ_NAME}
+        aria-label="Quiz name"
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.currentTarget.blur();
+          if (e.key === "Escape") setDraft(null);
+        }}
+        className="w-full rounded border border-ink bg-raised px-2 py-0.5 text-base text-ink"
+      />
+    );
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setDraft(name)}
+        title="Rename"
+        className="group flex max-w-full cursor-text items-baseline gap-2 text-left text-base text-ink"
+      >
+        <span className="truncate">{name}</span>
+        <span aria-hidden className="rail-label opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100">
+          rename
+        </span>
+      </button>
+      {error && <p className="text-xs text-wrong">{error}</p>}
+    </>
+  );
 }
 
 export function QuizPanel({
@@ -100,18 +171,12 @@ export function QuizPanel({
                 )}
               </div>
               <div className="min-w-0 text-sm text-muted">
-                <div>
-                  {quiz.questionCount} questions · built{" "}
-                  {new Date(quiz.createdAt).toLocaleDateString(undefined, {
-                    day: "numeric",
-                    month: "short",
-                  })}
+                <QuizName quizId={quiz._id} initial={quiz.name ?? UNNAMED_QUIZ} />
+                <div className="mt-0.5">
+                  {quiz.questionCount} questions
+                  {quiz.attempts > 0 &&
+                    ` · taken ${quiz.attempts} ${quiz.attempts === 1 ? "time" : "times"}`}
                 </div>
-                {quiz.attempts > 0 && (
-                  <div className="mt-0.5">
-                    Taken {quiz.attempts} {quiz.attempts === 1 ? "time" : "times"}
-                  </div>
-                )}
               </div>
               <button
                 onClick={() => start(quiz._id)}

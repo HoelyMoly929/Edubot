@@ -61,6 +61,7 @@ export default async function DocumentPage({ params }: PageProps<"/documents/[id
             documentId={doc._id.toString()}
             initialQuizzes={quizzes.map(({ quiz, bestScore, attempts }) => ({
               _id: quiz._id.toString(),
+              name: quiz.name,
               questionCount: quiz.questionCount,
               createdAt: quiz.createdAt.toISOString(),
               bestScore,

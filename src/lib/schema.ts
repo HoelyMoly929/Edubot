@@ -81,6 +81,11 @@ export interface Summary {
 export interface Quiz {
   _id: ObjectId;
   documentId: ObjectId;
+  /**
+   * User-facing name ("Quiz 1" until renamed). Not in the ERD, which lists only
+   * count and date; added so attempts can be told apart without dates.
+   */
+  name?: string;
   /** 10–20 per the proposal. */
   questionCount: number;
   createdAt: Date;
@@ -200,7 +205,7 @@ export const SETUP: Record<CollectionName, CollectionSetup> = {
   quizzes: {
     indexes: [[{ documentId: 1, createdAt: -1 }]],
     required: ["documentId", "questionCount", "createdAt"],
-    properties: { documentId: objectId, questionCount: number, createdAt: date },
+    properties: { documentId: objectId, name: string, questionCount: number, createdAt: date },
   },
   questions: {
     indexes: [[{ quizId: 1 }]],
