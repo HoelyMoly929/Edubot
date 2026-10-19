@@ -113,7 +113,11 @@ export async function getAttempt(id: string): Promise<{
 export interface AttemptSummary {
   attempt: QuizAttempt;
   documentName: string;
+  /** Null when the document (and so its notes) is gone. */
+  documentId: string | null;
   quizName: string;
+  /** False once re-indexing cleared the quiz: nothing left to retake. */
+  quizExists: boolean;
   total: number;
 }
 
@@ -147,7 +151,9 @@ export async function listAttempts(): Promise<AttemptSummary[]> {
       attempt,
       // A quiz cleared by re-indexing still leaves its attempt (spec §8).
       documentName: doc?.filename ?? "Removed document",
+      documentId: doc ? doc._id.toString() : null,
       quizName: quiz?.name ?? (quiz ? UNNAMED_QUIZ : "Removed quiz"),
+      quizExists: Boolean(quiz),
       total: quiz?.questionCount ?? attempt.responses.length,
     };
   });

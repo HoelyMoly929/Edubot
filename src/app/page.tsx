@@ -23,7 +23,7 @@ export default function Home() {
           <div className="mt-10">
             <Show when="signed-out">
               <SignUpButton>
-                <button className="cursor-pointer rounded-full bg-ink px-6 py-3 text-paper">
+                <button className="cursor-pointer rounded-full bg-brand px-6 py-3 font-bold text-white hover:bg-brand-hover">
                   Start with a PDF
                 </button>
               </SignUpButton>
@@ -31,7 +31,7 @@ export default function Home() {
             <Show when="signed-in">
               <Link
                 href="/dashboard"
-                className="inline-block rounded-full bg-ink px-6 py-3 text-paper"
+                className="inline-block rounded-full bg-brand px-6 py-3 font-bold text-white hover:bg-brand-hover"
               >
                 Go to your documents
               </Link>

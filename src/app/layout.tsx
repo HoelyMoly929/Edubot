@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Fraunces, Geist_Mono, Source_Serif_4 } from "next/font/google";
+import { Fredoka, Nunito } from "next/font/google";
 import {
   ClerkProvider,
   Show,
@@ -8,25 +8,20 @@ import {
   SignUpButton,
   UserButton,
 } from "@clerk/nextjs";
+import { NavLinks } from "./_components/nav-links";
 import "./globals.css";
 
-// Display face: the "wonk" and soft axes give Fraunces its character, used only
-// for headings so it stays an accent rather than a texture.
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
+const fredoka = Fredoka({
+  variable: "--font-fredoka",
   subsets: ["latin"],
-  axes: ["SOFT", "WONK", "opsz"],
+  weight: ["500", "600"],
 });
 
-// Reading face. Study notes and question stems are read closely, so the body
-// face is a text serif rather than a UI sans.
-const sourceSerif = Source_Serif_4({
-  variable: "--font-source-serif",
+const nunito = Nunito({
+  variable: "--font-nunito",
   subsets: ["latin"],
+  weight: ["400", "600", "700"],
 });
-
-// The margin rail's voice: page numbers, difficulty, scores.
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "EduBot",
@@ -37,44 +32,55 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <ClerkProvider>
-      <html
-        lang="en"
-        className={`${fraunces.variable} ${sourceSerif.variable} ${geistMono.variable} h-full antialiased`}
-      >
+      <html lang="en" className={`${fredoka.variable} ${nunito.variable} h-full antialiased`}>
         <body className="flex min-h-full flex-col">
-          <header className="border-b border-rule">
-            <div className="mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-4">
-              <Link href="/" className="display text-xl font-semibold">
-                EduBot
-              </Link>
-              <nav className="flex items-center gap-5 text-sm">
-                <Show when="signed-in">
-                  <Link href="/dashboard" className="hover:text-source">
-                    Documents
-                  </Link>
-                  <Link href="/history" className="hover:text-source">
-                    History
-                  </Link>
+          <header className="flex flex-wrap items-center justify-between gap-4 px-[clamp(16px,4vw,48px)] py-5">
+            <Link href="/" className="flex items-center gap-3 text-ink">
+              <span className="flex size-11 items-center justify-center rounded-[14px] bg-brand">
+                <svg
+                  aria-hidden="true"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="#FFFFFF"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M3 8l9-4 9 4-9 4-9-4z" />
+                  <path d="M7 10.5V15c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5" />
+                </svg>
+              </span>
+              <span className="display text-[26px] font-semibold">EduBot</span>
+            </Link>
+
+            <nav className="flex flex-wrap items-center gap-2">
+              <Show when="signed-in">
+                <NavLinks />
+                <span className="ml-2 flex items-center">
                   <UserButton />
-                </Show>
-                <Show when="signed-out">
-                  <SignInButton>
-                    <button className="cursor-pointer hover:text-source">Sign in</button>
-                  </SignInButton>
-                  <SignUpButton>
-                    <button className="cursor-pointer rounded-full bg-ink px-4 py-1.5 text-paper">
-                      Sign up
-                    </button>
-                  </SignUpButton>
-                </Show>
-              </nav>
-            </div>
+                </span>
+              </Show>
+              <Show when="signed-out">
+                <SignInButton>
+                  <button className="min-h-11 cursor-pointer rounded-full px-5 font-bold text-[#3A4068] hover:bg-brand-soft">
+                    Sign in
+                  </button>
+                </SignInButton>
+                <SignUpButton>
+                  <button className="min-h-11 cursor-pointer rounded-full bg-brand px-5 font-bold text-white hover:bg-brand-hover">
+                    Sign up
+                  </button>
+                </SignUpButton>
+              </Show>
+            </nav>
           </header>
 
           <main className="flex flex-1 flex-col">{children}</main>
 
-          <footer className="border-t border-rule">
-            <p className="mx-auto w-full max-w-5xl px-6 py-4 text-xs text-muted">
+          <footer className="px-[clamp(16px,4vw,48px)] pt-6 pb-8">
+            <p className="mx-auto max-w-[1184px] text-sm text-muted">
               Every note and question here is generated from your own upload and
               linked to the page it came from. It&rsquo;s a study aid, not a
               replacement for your course materials — check the source before you

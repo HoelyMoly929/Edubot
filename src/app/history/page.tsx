@@ -1,74 +1,52 @@
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 import { listAttempts } from "@/lib/queries";
+import { HistoryList, type HistoryRow } from "./history-list";
 
 export default async function HistoryPage() {
   await auth.protect();
   const attempts = await listAttempts();
 
-  return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-12">
-      <h1 className="display text-3xl font-semibold">Your quiz history</h1>
-      <p className="mt-2 max-w-prose text-muted">
-        Every attempt, with the difficulty you finished at. Open a finished one to
-        go back over what you missed.
-      </p>
+  const rows: HistoryRow[] = attempts.map(
+    ({ attempt, documentName, documentId, quizName, quizExists, total }) => ({
+      attemptId: attempt._id.toString(),
+      quizId: attempt.quizId.toString(),
+      quizName,
+      quizExists,
+      documentName,
+      documentId,
+      finished: Boolean(attempt.completedAt),
+      score: attempt.score,
+      answered: attempt.responses.length,
+      total,
+      wrong: attempt.responses.filter((r) => !r.correct).length,
+      finalDifficulty: attempt.finalDifficulty,
+      startedAt: attempt.startedAt.toISOString(),
+    }),
+  );
 
-      {attempts.length === 0 ? (
-        <p className="mt-12 text-muted">
+  return (
+    <div className="mx-auto flex w-full max-w-[1184px] flex-col gap-8 px-[clamp(16px,4vw,48px)] pt-4 pb-16">
+      <section className="flex flex-col gap-3">
+        <h1 className="display text-[clamp(32px,5vw,44px)] leading-[1.1] font-semibold">
+          Quiz history
+        </h1>
+        <p className="max-w-[560px] text-lg leading-relaxed text-muted">
+          Every quiz you have taken, newest first. Open one to go back over what you
+          missed, or retake it to see how much you have improved.
+        </p>
+      </section>
+
+      {rows.length === 0 ? (
+        <p className="rounded-[28px] border border-line bg-card p-8 text-lg text-muted">
           No attempts yet.{" "}
-          <Link href="/dashboard" className="text-source hover:underline">
+          <Link href="/dashboard" className="font-bold text-brand-ink underline">
             Pick a document
           </Link>{" "}
           and take a quiz.
         </p>
       ) : (
-        <ul className="mt-10">
-          {attempts.map(({ attempt, documentName, quizName, total }) => {
-            const answered = attempt.responses.length;
-            const finished = Boolean(attempt.completedAt);
-            const wrong = attempt.responses.filter((r) => !r.correct).length;
-
-            return (
-              <li key={attempt._id.toString()} className="border-t border-rule">
-                {/* The whole row is the link: one target, keyboard reachable. */}
-                <Link
-                  href={`/attempts/${attempt._id}`}
-                  className="group grid grid-cols-[4rem_1fr_auto] items-center gap-x-5 py-5 sm:grid-cols-[6rem_1fr_auto]"
-                >
-                  {/* Score leads: it's what you came to this page for. */}
-                  <div>
-                    {finished ? (
-                      <>
-                        <div className="font-mono text-2xl">
-                          {Math.round(attempt.score * 100)}%
-                        </div>
-                        <div className="rail-label mt-1">{attempt.finalDifficulty}</div>
-                      </>
-                    ) : (
-                      <span className="rail-label">In progress</span>
-                    )}
-                  </div>
-
-                  <div className="min-w-0">
-                    <p className="truncate group-hover:text-source">{quizName}</p>
-                    <p className="mt-1 truncate text-sm text-muted">
-                      {documentName} · {answered} of {total} answered ·{" "}
-                      {attempt.startedAt.toLocaleDateString(undefined, {
-                        day: "numeric",
-                        month: "short",
-                      })}
-                    </p>
-                  </div>
-
-                  <span className="rail-label text-source whitespace-nowrap">
-                    {!finished ? "Finish it →" : wrong > 0 ? `Review ${wrong} →` : "View →"}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+        <HistoryList rows={rows} />
       )}
     </div>
   );

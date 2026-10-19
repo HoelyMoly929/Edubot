@@ -1,87 +1,105 @@
 @import "tailwindcss";
 
 /*
- * EduBot — "marginalia": ink on paper, with a margin rail carrying provenance.
- * The highlighter yellow is the only bright colour in the system and is spent
- * exclusively on the current question / active source, so it always means
- * "here".
+ * EduBot — friendly study app. Indigo on a pale lavender ground, Fredoka for
+ * headings and Nunito for everything else, big rounded cards, and a pastel
+ * set (yellow / blue / green / coral) that colour-codes progress and results.
+ * Tokens follow the design canvas exactly; light only, as designed.
  */
 :root {
-  --paper: #f6f5f0;
-  --raised: #fffefb;
-  --ink: #17212b;
-  --ink-muted: #5c6875;
-  --rule: #dddbd1;
-  --highlight: #ebdf4a;
-  --source: #15635e;
-  --wrong: #a33a2b;
-  /* On paper a highlighter is opaque; the ink stays dark and readable. */
-  --marker-strength: 62%;
-}
+  --paper: #f6f7fd;
+  --card: #ffffff;
+  --ink: #1f2347;
+  --ink-soft: #2c3156;
+  --muted: #4a5078;
+  --line: #e3e6f5;
+  --line-strong: #dde0f2;
+  --track: #d9dcf0;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #12161c;
-    --raised: #181d25;
-    --ink: #e9e7e0;
-    --ink-muted: #98a2ae;
-    --rule: #2a313b;
-    --highlight: #d4c73a;
-    --source: #54b6ab;
-    --wrong: #e08274;
-    /* In the dark, the same opacity turns light text into olive-on-olive.
-       Drop it to a wash so the stroke still reads as emphasis. */
-    --marker-strength: 26%;
-  }
+  --brand: #4f46e5;
+  --brand-hover: #4338ca;
+  --brand-ink: #3b31b8;
+  --brand-soft: #e6e3ff;
+  --brand-softer: #ecE9ff;
+  --brand-dash: #a9a3f5;
+
+  --good: #0a6040;
+  --good-soft: #d8f4e6;
+  --warn: #6b4600;
+  --warn-soft: #fff0c2;
+  --info: #0a4c86;
+  --info-soft: #dceeff;
+  --bad: #8a2a16;
+  --bad-strong: #9b2f1a;
+  --bad-soft: #ffe3dd;
+  --sun: #ffe9a8;
 }
 
 @theme inline {
   --color-paper: var(--paper);
-  --color-raised: var(--raised);
+  --color-card: var(--card);
   --color-ink: var(--ink);
-  --color-muted: var(--ink-muted);
-  --color-rule: var(--rule);
-  --color-highlight: var(--highlight);
-  --color-source: var(--source);
-  --color-wrong: var(--wrong);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-track: var(--track);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-ink: var(--brand-ink);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-softer: var(--brand-softer);
+  --color-brand-dash: var(--brand-dash);
+  --color-good: var(--good);
+  --color-good-soft: var(--good-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-bad: var(--bad);
+  --color-bad-strong: var(--bad-strong);
+  --color-bad-soft: var(--bad-soft);
+  --color-sun: var(--sun);
 
-  --font-display: var(--font-fraunces);
-  --font-sans: var(--font-source-serif);
-  --font-mono: var(--font-geist-mono);
+  /* Older names, kept so any page not yet restyled still reads correctly. */
+  --color-raised: var(--card);
+  --color-rule: var(--line);
+  --color-source: var(--brand);
+  --color-wrong: var(--bad-strong);
+  --color-highlight: var(--sun);
+
+  --font-display: var(--font-fredoka);
+  --font-sans: var(--font-nunito);
+
+  --shadow-card: 0 8px 28px rgba(79, 70, 229, 0.08);
 }
 
 body {
   background: var(--paper);
   color: var(--ink);
-  font-family: var(--font-source-serif), Georgia, serif;
+  font-family: var(--font-nunito), system-ui, sans-serif;
 }
 
-/* The display face carries the page's personality; keep it optically tight. */
+/* Headings: Fredoka, used for titles and scores only. */
 .display {
-  font-family: var(--font-fraunces), Georgia, serif;
-  font-optical-sizing: auto;
-  letter-spacing: -0.02em;
+  font-family: var(--font-fredoka), system-ui, sans-serif;
 }
 
-/*
- * Margin rail labels: small, monospaced, uppercase. This is the "annotation"
- * voice — it should never read as body copy.
- */
+/* Small bold labels (status, counts, page references). */
 .rail-label {
-  font-family: var(--font-geist-mono), ui-monospace, monospace;
-  font-size: 0.6875rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--ink-muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--muted);
 }
 
-/* A real highlighter stroke, not a coloured box — it sits behind the text. */
+/* Highlighted phrase, used on the landing headline and evidence quotes. */
 .marker {
-  background-image: linear-gradient(
-    to bottom,
-    transparent 10%,
-    color-mix(in srgb, var(--highlight) var(--marker-strength), transparent) 10%
-  );
+  background: var(--sun);
+  border-radius: 6px;
+  padding: 0 0.15em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 
 /* Each new quiz question eases in, so the swap reads as progress. */
@@ -106,7 +124,6 @@ body {
 }
 
 :focus-visible {
-  outline: 2px solid var(--source);
+  outline: 3px solid var(--brand);
   outline-offset: 2px;
-  border-radius: 2px;
 }
