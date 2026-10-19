@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { chunks, questions, quizAttempts } from "@/lib/db";
+import { questions, quizAttempts } from "@/lib/db";
 import { getCurrentUser } from "@/lib/user";
 import { adjustDifficulty, overallScore, rollingScore, selectNextQuestion } from "@/lib/adaptive";
 
@@ -7,7 +7,8 @@ import { adjustDifficulty, overallScore, rollingScore, selectNextQuestion } from
  * Records one answer and adapts difficulty in real time (spec §7).
  *
  * Marking happens here, never on the client: the correct option is not sent to
- * the browser until the question has been answered.
+ * the browser until the question has been answered. Explanations and sources
+ * are held back for the results screen, so the quiz itself stays a test.
  */
 export async function POST(
   request: Request,
@@ -79,20 +80,9 @@ export async function POST(
     },
   );
 
-  // Citation for the answered question, so the student can verify it (spec §9).
-  const source = await (await chunks()).findOne({ _id: question.chunkId });
-
   return Response.json({
     correct,
     correctOption: question.correctOption,
-    citation: source
-      ? {
-          chunkId: source._id,
-          sourcePage: source.sourcePage,
-          endPage: source.endPage,
-          text: source.text,
-        }
-      : null,
     score,
     difficulty: nextDifficulty,
     difficultyChanged: nextDifficulty !== attempt.finalDifficulty,

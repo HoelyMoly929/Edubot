@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { formatPagesLong } from "@/lib/pages";
 
 type Difficulty = "easy" | "medium" | "hard";
 
@@ -11,12 +10,6 @@ interface Question {
   stem: string;
   options: string[];
   difficulty: Difficulty;
-}
-
-interface Marked {
-  correct: boolean;
-  correctOption: number;
-  citation: { sourcePage: number; endPage?: number; text: string } | null;
 }
 
 interface Pending {
@@ -62,33 +55,39 @@ function DifficultyLadder({
   );
 }
 
+/**
+ * The answering phase only. Explanations and sources are deliberately held back
+ * until the results screen, so the quiz stays a test rather than an open book.
+ */
 export function QuizRunner({
   attemptId,
   firstQuestion,
   total,
+  answeredSoFar,
   startingDifficulty,
-  documentName,
 }: {
   attemptId: string;
-  firstQuestion: Question | null;
+  firstQuestion: Question;
   total: number;
+  answeredSoFar: number;
   startingDifficulty: Difficulty;
-  documentName: string;
 }) {
+  const router = useRouter();
   const [question, setQuestion] = useState(firstQuestion);
   const [difficulty, setDifficulty] = useState<Difficulty>(startingDifficulty);
   const [direction, setDirection] = useState<"up" | "down" | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
-  const [marked, setMarked] = useState<Marked | null>(null);
+  const [marked, setMarked] = useState<{ correct: boolean; correctOption: number } | null>(
+    null,
+  );
   const [pending, setPending] = useState<Pending | null>(null);
-  const [answered, setAnswered] = useState(0);
-  const [score, setScore] = useState(0);
-  const [done, setDone] = useState(firstQuestion === null);
+  const [answered, setAnswered] = useState(answeredSoFar);
   const [busy, setBusy] = useState(false);
+  const [finishing, setFinishing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function submit(option: number) {
-    if (!question || marked || busy) return;
+    if (marked || busy) return;
     setSelected(option);
     setBusy(true);
     setError(null);
@@ -101,14 +100,9 @@ export function QuizRunner({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "That answer didn't save");
 
-      setMarked({
-        correct: data.correct,
-        correctOption: data.correctOption,
-        citation: data.citation,
-      });
+      setMarked({ correct: data.correct, correctOption: data.correctOption });
       setAnswered(data.answered);
-      setScore(data.score);
-      // Held until "Next": the student reads the result before anything moves.
+      // Held until "Next": the student sees the mark before anything moves.
       setPending({
         question: data.question,
         difficulty: data.difficulty,
@@ -125,51 +119,28 @@ export function QuizRunner({
   function next() {
     if (!pending) return;
 
-    // Direction comes from comparing levels, not from which level we landed on:
+    if (pending.completed || !pending.question) {
+      // The attempt is marked complete server-side; re-render the page, which
+      // now shows the results and review.
+      setFinishing(true);
+      router.refresh();
+      return;
+    }
+
+    // Direction comes from comparing levels, not from where we landed:
     // "medium" can be a step up or a step down.
     const from = LEVELS.indexOf(difficulty);
     const to = LEVELS.indexOf(pending.difficulty);
     setDirection(to > from ? "up" : to < from ? "down" : null);
     setDifficulty(pending.difficulty);
 
+    setQuestion(pending.question);
     setMarked(null);
     setSelected(null);
-    if (pending.completed || !pending.question) setDone(true);
-    else setQuestion(pending.question);
     setPending(null);
   }
 
-  if (done) {
-    const percent = Math.round(score * 100);
-    return (
-      <div className="grid grid-cols-1 gap-x-6 sm:grid-cols-[6rem_1fr]">
-        <div className="rail-label">Finished</div>
-        <div>
-          <h1 className="display text-3xl font-semibold">
-            {percent}% <span className="text-muted">·</span> {answered}{" "}
-            {answered === 1 ? "question" : "questions"}
-          </h1>
-          <p className="mt-3 max-w-prose text-muted">
-            You finished at <strong className="text-ink">{difficulty}</strong> difficulty
-            on {documentName}.
-          </p>
-          <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/history" className="rounded-full bg-ink px-5 py-2 text-sm text-paper">
-              See your history
-            </Link>
-            <Link
-              href="/dashboard"
-              className="rounded-full border border-ink px-5 py-2 text-sm hover:bg-ink hover:text-paper"
-            >
-              Back to documents
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!question) return <p className="text-muted">This quiz has no questions.</p>;
+  const last = pending?.completed || (pending && !pending.question);
 
   return (
     <div className="grid grid-cols-1 gap-x-6 gap-y-6 sm:grid-cols-[6rem_1fr]">
@@ -207,9 +178,6 @@ export function QuizRunner({
                 >
                   <span className="rail-label mr-3">{String.fromCharCode(65 + i)}</span>
                   {option}
-                  {marked && isAnswer && (
-                    <span className="rail-label ml-2 text-source">correct</span>
-                  )}
                 </button>
               </li>
             );
@@ -219,27 +187,17 @@ export function QuizRunner({
         {error && <p className="mt-4 text-sm text-wrong">{error}</p>}
 
         {marked && (
-          <div aria-live="polite" className="mt-6">
+          <div aria-live="polite" className="mt-6 flex flex-wrap items-center gap-4">
             <p className={marked.correct ? "text-source" : "text-wrong"}>
               {marked.correct ? "Correct." : "Not quite."}
             </p>
-
-            {marked.citation && (
-              <blockquote className="mt-3 border-l-2 border-source pl-4 text-sm leading-relaxed text-muted">
-                <span className="rail-label block text-source">
-                  Why — from your document,{" "}
-                  {formatPagesLong(marked.citation.sourcePage, marked.citation.endPage)}
-                </span>
-                <span className="mt-2 block whitespace-pre-wrap">{marked.citation.text}</span>
-              </blockquote>
-            )}
-
             <button
               onClick={next}
+              disabled={finishing}
               autoFocus
-              className="mt-6 cursor-pointer rounded-full bg-ink px-5 py-2 text-sm text-paper"
+              className="cursor-pointer rounded-full bg-ink px-5 py-2 text-sm text-paper disabled:opacity-50"
             >
-              {pending?.completed || !pending?.question ? "See your score" : "Next question"}
+              {finishing ? "Loading results…" : last ? "See your results" : "Next question"}
             </button>
           </div>
         )}

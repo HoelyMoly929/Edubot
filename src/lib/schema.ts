@@ -67,6 +67,8 @@ export interface Summary {
   _id: ObjectId;
   documentId: ObjectId;
   points: {
+    /** Topic heading. Absent on summaries written before notes had sections. */
+    heading?: string;
     text: string;
     chunkId: ObjectId;
     /** Copied from the chunk so rendering a citation needs no second lookup. */
@@ -94,6 +96,13 @@ export interface Question {
   correctOption: number;
   difficulty: Difficulty;
   chunkId: ObjectId;
+  /**
+   * Why the correct option is right, shown on the results screen (spec §8:
+   * "view score + explanations"). Absent on quizzes built before this existed.
+   */
+  explanation?: string;
+  /** A short quote, verified verbatim against the chunk, locating the answer. */
+  evidence?: string;
 }
 
 /** One full run through a Quiz by one User (spec §7). */

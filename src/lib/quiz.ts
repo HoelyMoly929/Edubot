@@ -22,6 +22,32 @@ export interface QuestionDraft {
   correctOption: number;
   difficulty: Difficulty;
   chunkId: ObjectId;
+  explanation?: string;
+  evidence?: string;
+}
+
+const squash = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[\u2018\u2019]/g, "'")
+    .replace(/[\u201c\u201d]/g, '"')
+    .replace(/[^a-z0-9']+/g, " ")
+    .trim();
+
+/**
+ * Returns the quote only if it really appears in the source text.
+ *
+ * The results screen presents this as "from your document", so a paraphrase or
+ * an invented line would be a false citation. Comparison ignores case,
+ * punctuation and line breaks (PDF extraction mangles those), but not wording.
+ */
+export function verifyEvidence(quote: string | undefined, source: string): string | undefined {
+  const trimmed = quote?.trim().replace(/^["'\u201c]+|["'\u201d]+$/g, "").trim();
+  if (!trimmed) return undefined;
+  const needle = squash(trimmed);
+  // Too short to locate anything; a single word matches everywhere.
+  if (needle.split(" ").length < 3) return undefined;
+  return squash(source).includes(needle) ? trimmed : undefined;
 }
 
 let client: OpenAI | undefined;
@@ -74,8 +100,17 @@ function responseSchema(excerptCount: number) {
               description: "Number of the excerpt this question is answerable from.",
               enum: Array.from({ length: excerptCount }, (_, i) => i + 1),
             },
+            explanation: {
+              type: "string",
+              description: "One or two plain sentences on why the correct option is right.",
+            },
+            evidence: {
+              type: "string",
+              description:
+                "A short phrase (5 to 25 words) copied word for word from the source excerpt that contains the answer.",
+            },
           },
-          required: ["stem", "options", "correctIndex", "source"],
+          required: ["stem", "options", "correctIndex", "source", "explanation", "evidence"],
           additionalProperties: false,
         },
       },
@@ -96,6 +131,8 @@ Rules:
 - Options must be mutually exclusive and similar in length and style, so the answer isn't guessable from formatting.
 - Never use "all of the above" or "none of the above".
 - Set "source" to the number of the excerpt the question came from.
+- "explanation": one or two plain sentences a student can learn from — why the right answer is right, and if a wrong option is tempting, why it is wrong. Don't restate the question.
+- "evidence": copy 5 to 25 words EXACTLY as written in the excerpt, where the answer is stated. Do not paraphrase or fix the wording.
 - Difficulty: ${DIFFICULTY_BRIEF[difficulty]}`;
 }
 
@@ -143,12 +180,20 @@ export async function generateQuestions(
   if (!content) throw new Error("The model returned no questions.");
 
   const parsed = JSON.parse(content) as {
-    questions: { stem: string; options: string[]; correctIndex: number; source: number }[];
+    questions: {
+      stem: string;
+      options: string[];
+      correctIndex: number;
+      source: number;
+      explanation: string;
+      evidence: string;
+    }[];
   };
 
   const seen = new Set<string>();
 
-  return parsed.questions.flatMap<QuestionDraft>(({ stem, options, correctIndex, source }) => {
+  return parsed.questions.flatMap<QuestionDraft>(
+    ({ stem, options, correctIndex, source, explanation, evidence }) => {
     const cited = retrieved[source - 1];
     const cleanStem = stem?.trim();
     const cleanOptions = options?.map((option) => option.trim()).filter(Boolean) ?? [];
@@ -173,9 +218,13 @@ export async function generateQuestions(
         correctOption: correctIndex,
         difficulty,
         chunkId: cited.chunk._id,
+        explanation: explanation?.trim() || undefined,
+        // Dropped rather than shown if it isn't really in the source.
+        evidence: verifyEvidence(evidence, cited.chunk.text),
       },
     ];
-  });
+    },
+  );
 }
 
 /**

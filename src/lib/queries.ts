@@ -39,6 +39,7 @@ export async function getLatestSummary(documentId: ObjectId): Promise<Summary | 
 }
 
 export interface CitedPoint {
+  heading?: string;
   text: string;
   chunkId: string;
   sourcePage: number;
@@ -69,6 +70,7 @@ export async function getSummaryWithSources(documentId: ObjectId): Promise<{
   return {
     createdAt: summary.createdAt,
     points: summary.points.map((point) => ({
+      heading: point.heading,
       text: point.text,
       chunkId: point.chunkId.toString(),
       sourcePage: point.sourcePage,
@@ -153,4 +155,62 @@ export async function getAttemptQuestions(quizId: ObjectId) {
   return (await questions())
     .find({ quizId }, { projection: { correctOption: 0 } })
     .toArray();
+}
+
+export interface ReviewItem {
+  questionId: string;
+  stem: string;
+  options: string[];
+  selectedOption: number;
+  correctOption: number;
+  correct: boolean;
+  difficulty: string;
+  explanation?: string;
+  evidence?: string;
+  sourcePage?: number;
+  endPage?: number;
+}
+
+/**
+ * Every answered question with its marking, explanation and source location,
+ * for the results screen (spec §8: "view score + explanations").
+ *
+ * Only called for a finished attempt the caller already owns, so revealing the
+ * correct options here gives nothing away.
+ */
+export async function getAttemptReview(attempt: QuizAttempt): Promise<ReviewItem[]> {
+  const asked = await (await questions())
+    .find({ _id: { $in: attempt.responses.map((r) => r.questionId) } })
+    .toArray();
+  const questionById = new Map(asked.map((q) => [q._id.toString(), q]));
+
+  const sources = await (await chunks())
+    .find(
+      { _id: { $in: asked.map((q) => q.chunkId) } },
+      { projection: { sourcePage: 1, endPage: 1 } },
+    )
+    .toArray();
+  const chunkById = new Map(sources.map((c) => [c._id.toString(), c]));
+
+  return attempt.responses.flatMap((response) => {
+    const question = questionById.get(response.questionId.toString());
+    // Cleared by re-indexing: the attempt keeps its score, the detail is gone.
+    if (!question) return [];
+    const source = chunkById.get(question.chunkId.toString());
+    return [
+      {
+        questionId: question._id.toString(),
+        stem: question.stem,
+        options: question.options,
+        selectedOption: response.selectedOption,
+        correctOption: question.correctOption,
+        correct: response.correct,
+        difficulty: question.difficulty,
+        explanation: question.explanation,
+        evidence: question.evidence,
+        sourcePage: source?.sourcePage,
+        endPage: source?.endPage,
+      },
+    ];
+  });
 }

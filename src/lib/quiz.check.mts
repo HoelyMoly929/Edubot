@@ -12,6 +12,7 @@ import {
   MIN_QUESTIONS,
   OPTIONS_PER_QUESTION,
   QUIZ_QUERY,
+  verifyEvidence,
 } from "./quiz.ts";
 import { DIFFICULTIES } from "./schema.ts";
 
@@ -41,6 +42,40 @@ assert.equal(
   DIFFICULTIES.length,
   "difficulty briefs must be distinct",
 );
+
+// --- evidence quotes -------------------------------------------------------
+// The results screen shows these as "from your document", so a quote that is
+// not really in the source must never get through.
+
+const source =
+  "Affordances: the shape and size of objects\nsuggest how they should be used. Buttons look pressable.";
+
+assert.equal(
+  verifyEvidence("the shape and size of objects suggest how they should be used", source),
+  "the shape and size of objects suggest how they should be used",
+  "a verbatim quote spanning a PDF line break must be accepted",
+);
+assert.ok(
+  verifyEvidence("THE SHAPE AND SIZE of objects", source),
+  "case differences from extraction are tolerated",
+);
+assert.ok(
+  verifyEvidence("\u201cButtons look pressable.\u201d", source),
+  "surrounding curly quotes are stripped before matching",
+);
+assert.equal(
+  verifyEvidence("the form and size of objects suggest how they should be used", source),
+  undefined,
+  "a paraphrase must be rejected — it isn't what the document says",
+);
+assert.equal(
+  verifyEvidence("objects should always be designed to be pressable", source),
+  undefined,
+  "an invented sentence must be rejected",
+);
+assert.equal(verifyEvidence("Buttons", source), undefined, "too short to locate anything");
+assert.equal(verifyEvidence("", source), undefined);
+assert.equal(verifyEvidence(undefined, source), undefined);
 
 console.log(
   `OK — quiz config matches spec §2 (${MIN_QUESTIONS}–${MAX_QUESTIONS} questions, ` +
