@@ -1,6 +1,7 @@
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { getCurrentUser } from "@/lib/user";
 import { MAX_UPLOAD_BYTES } from "@/lib/blob";
+import { blobToken } from "@/lib/blob-token";
 
 /**
  * Issues a short-lived token so the browser can upload straight to Vercel Blob.
@@ -13,6 +14,7 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     const result = await handleUpload({
+      token: blobToken(),
       body,
       request,
       onBeforeGenerateToken: async (pathname) => {

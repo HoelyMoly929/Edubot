@@ -1,6 +1,7 @@
 import { get } from "@vercel/blob";
 import { extractText } from "unpdf";
 import { BLOB_ACCESS } from "./blob.ts";
+import { blobToken } from "./blob-token.ts";
 import type { PageText } from "./chunk.ts";
 
 /**
@@ -64,7 +65,7 @@ export function stripRepeatedLines(pages: string[]): string[] {
 
 /** Reads a private blob's bytes using the store token. */
 export async function downloadPdf(blobUrl: string): Promise<Uint8Array> {
-  const result = await get(blobUrl, { access: BLOB_ACCESS });
+  const result = await get(blobUrl, { access: BLOB_ACCESS, token: blobToken() });
   if (!result) throw new UnprocessablePdfError("The uploaded file is no longer available.");
 
   const buffer = await new Response(result.stream).arrayBuffer();

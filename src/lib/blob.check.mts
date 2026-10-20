@@ -13,18 +13,28 @@ nextEnv.loadEnvConfig(process.cwd());
 
 const { put, head, del } = await import("@vercel/blob");
 const { BLOB_ACCESS, MAX_UPLOAD_BYTES } = await import("./blob.ts");
+const { blobToken } = await import("./blob-token.ts");
 
 assert.ok(process.env.BLOB_READ_WRITE_TOKEN, "BLOB_READ_WRITE_TOKEN is not set");
 
+// Vercel keeps a dashboard value byte for byte, so a token pasted with its
+// quotes broke every upload in production while working locally. Run the
+// whole probe with the token wrapped the way that deploy held it.
+const clean = blobToken();
+process.env.BLOB_READ_WRITE_TOKEN = ` "${clean}" `;
+assert.equal(blobToken(), clean, "quotes and spaces around the token must be stripped");
+const token = blobToken();
+
 const probe = Buffer.from("%PDF-1.4\n%%EOF\n");
 const blob = await put("check-probe.pdf", probe, {
+  token,
   access: BLOB_ACCESS,
   addRandomSuffix: true,
   contentType: "application/pdf",
 });
 
 try {
-  const meta = await head(blob.url);
+  const meta = await head(blob.url, { token });
   assert.equal(meta.size, probe.length, "round-tripped size differs");
 
   // Private blobs must not be readable without a token.
@@ -35,8 +45,9 @@ try {
 
   console.log(`OK — store accepts access="${BLOB_ACCESS}", ${meta.size} bytes round-tripped`);
   console.log(`   anonymous read blocked; upload cap ${MAX_UPLOAD_BYTES / 1024 / 1024} MB`);
+  console.log(`   a quote-wrapped token (as pasted into Vercel) still works`);
 } finally {
-  await del(blob.url);
+  await del(blob.url, { token });
 }
 
 process.exit(0);

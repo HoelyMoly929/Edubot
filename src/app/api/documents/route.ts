@@ -1,4 +1,5 @@
 import { head } from "@vercel/blob";
+import { blobToken } from "@/lib/blob-token";
 import { documents } from "@/lib/db";
 import { getCurrentUser } from "@/lib/user";
 import type { PdfDocument } from "@/lib/schema";
@@ -38,7 +39,7 @@ export async function POST(request: Request): Promise<Response> {
   // storing an unchecked URL.
   let size: number;
   try {
-    ({ size } = await head(url));
+    ({ size } = await head(url, { token: blobToken() }));
   } catch {
     return Response.json({ error: "No such upload" }, { status: 400 });
   }
