@@ -27,13 +27,14 @@ function getClient(): OpenAI {
   return (client ??= new OpenAI({ apiKey }));
 }
 
-const SYSTEM_PROMPT = `You write revision notes from course material, the way a strong student would in their notebook.
+const SYSTEM_PROMPT = `You write detailed, well-organised revision notes from course material, the way a strong student would in their notebook.
 
 Rules:
 - Use ONLY the numbered excerpts provided. Never add facts from outside them.
-- Group the notes into 3 to 6 topics, ordered as the material presents them. Give each a short heading (2 to 5 words).
-- Under each topic write 2 to 5 bullets. A bullet is a short note, not an essay: one line, a fragment is fine ("Affordance: an object's shape suggests how to use it").
-- Prefer definitions, lists of steps or types, and contrasts — the things a student would revise from.
+- Organise the notes by the material's OWN subtopics. If the excerpts have section or subtopic headings (e.g. A, B, C), make each one its own topic, using its own name, in the order the material presents them. Never merge distinct subtopics and never drop one.
+- If the material has no clear subtopics, group related ideas into topics yourself by theme (e.g. definitions, types, steps, causes, effects, examples), so each topic holds one kind of knowledge. Give each a short heading (2 to 5 words).
+- Under each topic write 3 to 8 bullets. Every bullet is one specific, self-contained point — a definition, how or why something works, a step, a type, a contrast, a number or an example — detailed enough to revise from without rereading. One or two sentences; no vague filler.
+- Keep different subtopics' facts apart: a bullet belongs under exactly one topic, and similar-looking concepts should be told apart ("Unlike X, Y ...").
 - Wrap the single most important term in a bullet in **double asterisks**. At most one per bullet; none if nothing stands out.
 - Set "source" on every bullet to the number of the excerpt it came from.`;
 
