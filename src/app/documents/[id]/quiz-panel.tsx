@@ -147,15 +147,15 @@ export function QuizPanel({
           No quizzes yet. Build one to test yourself on this document.
         </p>
       ) : (
-        <ul className="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-4">
+        <ul className="flex flex-col gap-4">
           {initialQuizzes.map((quiz) => {
             const tier = quiz.bestScore === null ? null : TIERS[tierFor(quiz.bestScore)];
             return (
               <li
                 key={quiz._id}
-                className={`flex flex-col gap-4 rounded-[24px] p-5 ${tier ? tier.card : "border-2 border-line-strong bg-card"}`}
+                className={`flex flex-col gap-4 rounded-[24px] p-5 sm:flex-row sm:items-center sm:gap-6 ${tier ? tier.card : "border-2 border-line-strong bg-card"}`}
               >
-                <div className="min-w-0">
+                <div className="min-w-0 sm:flex-1">
                   <QuizName quizId={quiz._id} initial={quiz.name ?? UNNAMED_QUIZ} />
                   <div className="text-[15px] text-ink-soft">
                     {quiz.questionCount} questions
@@ -165,7 +165,7 @@ export function QuizPanel({
                 </div>
 
                 {tier && quiz.bestScore !== null ? (
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 sm:w-72">
                     <div className="flex items-center justify-between gap-3">
                       <span className={`display text-[32px] font-medium leading-none ${tier.ink}`}>
                         {Math.round(quiz.bestScore * 100)}%
@@ -183,10 +183,10 @@ export function QuizPanel({
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm font-bold text-muted">Not taken yet</p>
+                  <p className="text-sm font-bold text-muted sm:w-72">Not taken yet</p>
                 )}
 
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 sm:flex-none">
                   <StartQuizButton
                     quizId={quiz._id}
                     label={quiz.attempts > 0 ? "Retake quiz" : "Start quiz"}
