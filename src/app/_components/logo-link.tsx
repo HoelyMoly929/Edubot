@@ -58,7 +58,19 @@ export function LogoLink() {
             />
           ))}
       </span>
-      <span className="display text-[26px] font-semibold">EduBot</span>
+      {/* Letters hop in a left-to-right wave, trailing the tile's hop. */}
+      <span
+        key={`w${plays}`}
+        data-playing={plays > 0}
+        aria-label="EduBot"
+        className="logo-word display text-[26px] font-semibold"
+      >
+        {"EduBot".split("").map((ch, i) => (
+          <span key={i} aria-hidden style={{ "--i": i } as React.CSSProperties}>
+            {ch}
+          </span>
+        ))}
+      </span>
     </Link>
   );
 }
