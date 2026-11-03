@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkSpinner } from "@/app/_components/link-spinner";
 import { Show, SignUpButton } from "@clerk/nextjs";
 
 export default function Home() {
@@ -34,6 +35,7 @@ export default function Home() {
                 className="inline-block rounded-full bg-brand px-6 py-3 font-bold text-white hover:bg-brand-hover"
               >
                 Go to your documents
+                <LinkSpinner />
               </Link>
             </Show>
           </div>

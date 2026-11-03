@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LinkSpinner } from "./link-spinner";
 
 /**
  * Pill navigation. The active pill is derived from the URL, so a document or a
@@ -28,6 +29,7 @@ export function NavLinks() {
             }`}
           >
             {label}
+            <LinkSpinner />
           </Link>
         );
       })}

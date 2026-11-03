@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LinkSpinner } from "@/app/_components/link-spinner";
 import { auth } from "@clerk/nextjs/server";
 import { listDocuments } from "@/lib/queries";
 import { UploadForm } from "./upload-form";
@@ -80,6 +81,7 @@ export default async function DashboardPage() {
                       </div>
                       <span className={`flex-none rounded-full px-3.5 py-1.5 text-sm font-bold ${status.className}`}>
                         {status.label}
+                        <LinkSpinner />
                       </span>
                     </div>
                     {doc.error && <p className="text-sm leading-relaxed text-bad">{doc.error}</p>}
