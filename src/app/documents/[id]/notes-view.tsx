@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { CitedBlock, CitedSection } from "@/lib/queries";
 import { formatPages, formatPagesLong } from "@/lib/pages";
 
@@ -44,6 +44,35 @@ function groupByChapter(sections: CitedSection[]) {
   return groups;
 }
 
+/** One entry in the jump list. `sections` are the cards it should open. */
+interface JumpEntry {
+  label: string;
+  target: string;
+  sections: number[];
+}
+
+/**
+ * Jump list: chapters when the notes have two or more; otherwise every card,
+ * so a PDF without chapters can still be navigated.
+ */
+function jumpEntries(groups: ReturnType<typeof groupByChapter>): JumpEntry[] {
+  const chapters = groups.filter((g) => g.chapter).length;
+  if (chapters >= 2) {
+    return groups.map((g, i) => ({
+      label: g.chapter ?? g.items[0].section.heading,
+      target: `group-${i}`,
+      sections: g.items.map((x) => x.index),
+    }));
+  }
+  return groups.flatMap((g) =>
+    g.items.map(({ section, index }) => ({
+      label: section.heading,
+      target: `section-${index}`,
+      sections: [index],
+    })),
+  );
+}
+
 export function NotesView({
   sections,
   sources,
@@ -52,21 +81,57 @@ export function NotesView({
   sources: Record<string, string>;
 }) {
   const [openSource, setOpenSource] = useState<string | null>(null);
+  // Cards start collapsed except the first, so a long document reads as an outline.
+  const [open, setOpen] = useState<Set<number>>(() => new Set([0]));
+  const [active, setActive] = useState(0);
+
+  const groups = groupByChapter(sections);
+  const entries = jumpEntries(groups);
+  const allOpen = open.size === sections.length;
+
+  const toggle = (index: number) =>
+    setOpen((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(index)) next.add(index);
+      return next;
+    });
+
+  // Highlights the jump entry whose heading is nearest the top of the screen.
+  const targets = entries.map((e) => e.target).join("|");
+  useEffect(() => {
+    const els = targets.split("|").map((id) => document.getElementById(id));
+    const io = new IntersectionObserver(
+      (records) => {
+        const top = records
+          .filter((r) => r.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (top) setActive(els.indexOf(top.target as HTMLElement));
+      },
+      { rootMargin: "-10% 0px -70% 0px" },
+    );
+    els.forEach((el) => el && io.observe(el));
+    return () => io.disconnect();
+  }, [targets]);
+
+  function jump(entry: JumpEntry, i: number) {
+    setOpen((prev) => new Set([...prev, entry.sections[0]]));
+    setActive(i);
+  }
 
   function renderChip(block: CitedBlock, id: string, tone: Tone) {
-    const open = openSource === id;
+    const isOpen = openSource === id;
     return (
       <>
         <button
           type="button"
-          onClick={() => setOpenSource(open ? null : id)}
-          aria-expanded={open}
+          onClick={() => setOpenSource(isOpen ? null : id)}
+          aria-expanded={isOpen}
           title="Show the text this came from"
           className={`ml-0.5 inline-flex cursor-pointer items-center rounded-full bg-white/80 px-2 py-0.5 align-[1px] text-xs font-bold hover:bg-white ${tone.chip}`}
         >
           {formatPages(block.sourcePage, block.endPage)}
         </button>
-        {open && (
+        {isOpen && (
           <blockquote className="mt-2 block rounded-[14px] bg-white/85 p-3.5 text-sm leading-relaxed text-ink-soft">
             <span className={`mb-1.5 block text-xs font-bold ${tone.chip}`}>
               From your document, {formatPagesLong(block.sourcePage, block.endPage)}
@@ -115,9 +180,7 @@ export function NotesView({
                 <li key={i}>{withKeyTerms(item)}</li>
               ))}
             </ol>
-            <div className="mt-1.5">
-              {renderChip(block, `${s}-${b}`, tone)}
-            </div>
+            <div className="mt-1.5">{renderChip(block, `${s}-${b}`, tone)}</div>
           </div>,
         );
       } else {
@@ -147,9 +210,7 @@ export function NotesView({
                 </tbody>
               </table>
             </div>
-            <div className="mt-1.5">
-              {renderChip(block, `${s}-${b}`, tone)}
-            </div>
+            <div className="mt-1.5">{renderChip(block, `${s}-${b}`, tone)}</div>
           </div>,
         );
       }
@@ -159,30 +220,108 @@ export function NotesView({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-[780px] flex-col gap-10">
-      {groupByChapter(sections).map((group, g) => (
-        <section key={g} className="flex flex-col gap-4">
-          {group.chapter && (
-            <h3 className="display border-b-2 border-brand-soft pb-2 text-[28px] font-medium text-brand-ink">
-              {group.chapter}
-            </h3>
-          )}
-          <div className="flex flex-col gap-4">
+    <div className="flex w-full flex-col gap-6 lg:flex-row lg:items-start lg:gap-10">
+      {/* Jump list: a sticky column on wide screens, a scrolling strip on narrow ones. */}
+      <nav
+        aria-label="Jump to"
+        className="lg:sticky lg:top-6 lg:w-52 lg:flex-none lg:self-start"
+      >
+        <p className="mb-2 hidden text-sm font-bold text-muted lg:block">Jump to</p>
+        <ul className="flex gap-2 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden lg:max-h-[70vh] lg:flex-col lg:gap-1 lg:overflow-y-auto lg:pb-0">
+          {entries.map((entry, i) => (
+            <li key={entry.target} className="flex-none">
+              <a
+                href={`#${entry.target}`}
+                onClick={() => jump(entry, i)}
+                aria-current={i === active ? "true" : undefined}
+                className={`block rounded-full px-4 py-2 text-sm font-bold whitespace-nowrap transition-colors lg:whitespace-normal lg:rounded-[14px] ${
+                  i === active
+                    ? "bg-brand-soft text-brand-ink"
+                    : "bg-card text-[#3A4068] hover:bg-brand-softer lg:bg-transparent"
+                }`}
+              >
+                {entry.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
+      <div className="flex min-w-0 max-w-[780px] flex-1 flex-col gap-4">
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setOpen(allOpen ? new Set() : new Set(sections.map((_, i) => i)))}
+            className="min-h-10 cursor-pointer rounded-full border-2 border-brand-dash bg-card px-5 text-sm font-bold text-brand-ink transition-colors hover:bg-brand-softer"
+          >
+            {allOpen ? "Collapse all" : "Expand all"}
+          </button>
+        </div>
+
+        {groups.map((group, g) => (
+          <section key={g} id={`group-${g}`} className="flex scroll-mt-6 flex-col gap-3">
+            {group.chapter && (
+              <h3 className="display mt-4 border-b-2 border-brand-soft pb-2 text-[28px] font-medium text-brand-ink">
+                {group.chapter}
+              </h3>
+            )}
             {group.items.map(({ section, index }) => {
               const tone = section.memory ? MEMORY_TONE : TONES[index % TONES.length];
+              const isOpen = open.has(index);
               return (
                 <article
                   key={index}
-                  className={`flex flex-col gap-4 rounded-[24px] p-[clamp(20px,3vw,28px)] text-[17px] ${tone.card} ${tone.text}`}
+                  id={`section-${index}`}
+                  className={`scroll-mt-6 rounded-[24px] ${tone.card} ${tone.text}`}
                 >
-                  <h4 className="display text-2xl font-medium">{section.heading}</h4>
-                  {renderBlocks(section, index, tone)}
+                  <h4>
+                    <button
+                      type="button"
+                      onClick={() => toggle(index)}
+                      aria-expanded={isOpen}
+                      aria-controls={`panel-${index}`}
+                      className="flex w-full cursor-pointer items-center gap-3 rounded-[24px] p-[clamp(18px,3vw,24px)] text-left"
+                    >
+                      <span className="display flex-1 text-2xl font-medium">{section.heading}</span>
+                      <span className="flex-none rounded-full bg-white/80 px-3 py-1 text-sm font-bold">
+                        {section.blocks.length} {section.blocks.length === 1 ? "point" : "points"}
+                      </span>
+                      <svg
+                        aria-hidden="true"
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className={`flex-none transition-transform duration-300 ${isOpen ? "rotate-180" : ""}`}
+                      >
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                    </button>
+                  </h4>
+                  {/* Grid-row trick animates height; `inert` keeps a collapsed card out of the tab order. */}
+                  <div
+                    id={`panel-${index}`}
+                    inert={!isOpen}
+                    className={`grid transition-[grid-template-rows] duration-300 ${
+                      isOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
+                    }`}
+                  >
+                    <div className="overflow-hidden">
+                      <div className="flex flex-col gap-4 px-[clamp(18px,3vw,24px)] pb-[clamp(18px,3vw,24px)] text-[17px]">
+                        {renderBlocks(section, index, tone)}
+                      </div>
+                    </div>
+                  </div>
                 </article>
               );
             })}
-          </div>
-        </section>
-      ))}
+          </section>
+        ))}
+      </div>
     </div>
   );
 }

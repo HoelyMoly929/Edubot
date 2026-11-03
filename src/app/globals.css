@@ -180,3 +180,10 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .logo-confetti { display: none; }
 }
+
+/* Jump links glide, unless the visitor has asked for less motion. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
