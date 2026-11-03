@@ -62,7 +62,34 @@ export interface Chunk {
   embedding: number[];
 }
 
-/** Generated study notes. Every point cites the chunk it came from (spec §9). */
+/** Where a unit of notes came from, so it can be checked (spec §9). */
+export interface NoteCite {
+  chunkId: ObjectId;
+  /** Copied from the chunk so rendering a citation needs no second lookup. */
+  sourcePage: number;
+  endPage?: number;
+}
+
+/** One cited unit of notes. `**term**` in text marks a key term. */
+export type NoteBlock =
+  | ({ kind: "bullet"; lead?: string; text: string } & NoteCite)
+  | ({ kind: "steps"; title?: string; items: string[] } & NoteCite)
+  | ({ kind: "table"; columns: string[]; rows: string[][] } & NoteCite);
+
+/** One subtopic card. `chapter` is set only when the material labels chapters. */
+export interface NoteSection {
+  chapter?: string;
+  heading: string;
+  /** The closing "Quick memory list" card. */
+  memory?: boolean;
+  blocks: NoteBlock[];
+}
+
+/**
+ * Generated study notes. Current notes are `sections`; `points` is the older
+ * flat shape, kept so existing summaries still render. New documents store
+ * `points: []` (the validator requires the field).
+ */
 export interface Summary {
   _id: ObjectId;
   documentId: ObjectId;
@@ -71,10 +98,10 @@ export interface Summary {
     heading?: string;
     text: string;
     chunkId: ObjectId;
-    /** Copied from the chunk so rendering a citation needs no second lookup. */
     sourcePage: number;
     endPage?: number;
   }[];
+  sections?: NoteSection[];
   createdAt: Date;
 }
 

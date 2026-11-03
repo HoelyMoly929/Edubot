@@ -14,6 +14,7 @@
     "check:extract": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/extract.check.mts",
     "check:retrieve": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/retrieve.check.mts",
     "check:quiz": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/quiz.check.mts",
+    "check:notes": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/notes.check.mts",
     "check:adaptive": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON src/lib/adaptive.check.mts"
   },
   "dependencies": {
