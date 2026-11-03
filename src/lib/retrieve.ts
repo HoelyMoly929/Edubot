@@ -68,3 +68,8 @@ export async function retrieveChunks(
   const queryVector = await embedQuery(query);
   return rankChunks(all, queryVector, topK);
 }
+
+/** Every chunk of a document, in reading order. Notes read all of them. */
+export async function loadChunks(documentId: ObjectId): Promise<Chunk[]> {
+  return (await chunksCollection()).find({ documentId }).sort({ position: 1 }).toArray();
+}

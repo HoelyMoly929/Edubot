@@ -1,8 +1,12 @@
 import type { Chunk, NoteBlock, NoteSection } from "./schema.ts";
 
-/** Chunks (~500 words each) the model reads per call. */
-export const BATCH_SIZE = 6;
-/** 40 batches ≈ 240 chunks ≈ 120 pages of dense prose; beyond that a run risks the 300s limit. */
+/**
+ * Chunks (~500 words each) the model reads per call. Six per call made it
+ * compress a dense PDF into a few sections and skip subtopics (seen on the
+ * HCI example); two keeps each call small enough to cover everything.
+ */
+export const BATCH_SIZE = 2;
+/** 40 batches ≈ 80 chunks ≈ 40 pages of dense prose; beyond that a run risks the 300s limit. */
 export const MAX_BATCHES = 40;
 
 export class NotesTooLongError extends Error {}
@@ -98,10 +102,14 @@ const titleKey = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ")
 /**
  * Joins adjacent sections with the same chapter and heading: a subtopic that
  * straddles a batch boundary comes back as two sections. The first spelling wins.
+ *
+ * A section with no chapter inherits the previous one's: each batch only sees
+ * its own excerpts, so a batch that starts mid-chapter can't know its name.
  */
 export function mergeSections(sections: NoteSection[]): NoteSection[] {
   const out: NoteSection[] = [];
-  for (const section of sections) {
+  for (const raw of sections) {
+    const section = raw.chapter ? raw : { ...raw, chapter: out.at(-1)?.chapter };
     const last = out.at(-1);
     if (
       last &&
