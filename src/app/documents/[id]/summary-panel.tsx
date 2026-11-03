@@ -138,9 +138,6 @@ export function SummaryPanel({ documentId, initialSummary }: Props) {
                             className={`ml-0.5 inline-flex cursor-pointer items-center rounded-full bg-white/80 px-2 py-0.5 align-[1px] text-xs font-bold hover:bg-white ${tone.chip}`}
                           >
                             {formatPages(point.sourcePage, point.endPage)}
-                            <span aria-hidden className="ml-1">
-                              {open ? "−" : "+"}
-                            </span>
                           </button>
                         </p>
 
