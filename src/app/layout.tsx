@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { Fredoka, Nunito } from "next/font/google";
 import {
   ClerkProvider,
@@ -8,6 +7,7 @@ import {
   SignUpButton,
   UserButton,
 } from "@clerk/nextjs";
+import { LogoLink } from "./_components/logo-link";
 import { NavLinks } from "./_components/nav-links";
 import "./globals.css";
 
@@ -35,25 +35,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <html lang="en" className={`${fredoka.variable} ${nunito.variable} h-full antialiased`}>
         <body className="flex min-h-full flex-col">
           <header className="flex flex-wrap items-center justify-between gap-4 px-[clamp(16px,4vw,48px)] py-5">
-            <Link href="/" className="flex items-center gap-3 text-ink">
-              <span className="flex size-11 items-center justify-center rounded-[14px] bg-brand">
-                <svg
-                  aria-hidden="true"
-                  width="24"
-                  height="24"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="#FFFFFF"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M3 8l9-4 9 4-9 4-9-4z" />
-                  <path d="M7 10.5V15c0 1.5 2.2 3 5 3s5-1.5 5-3v-4.5" />
-                </svg>
-              </span>
-              <span className="display text-[26px] font-semibold">EduBot</span>
-            </Link>
+            <LogoLink />
 
             <nav className="flex flex-wrap items-center gap-2">
               <Show when="signed-in">

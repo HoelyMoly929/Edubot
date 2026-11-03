@@ -127,3 +127,43 @@ body {
   outline: 3px solid var(--brand);
   outline-offset: 2px;
 }
+
+/* Logo click: squash-and-hop tile, cap tossed and spun, confetti burst. */
+.logo-tile[data-playing="true"] {
+  animation: logo-hop 0.7s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+.logo-tile[data-playing="true"] .logo-cap {
+  animation: logo-toss 0.9s cubic-bezier(0.3, 0.7, 0.4, 1);
+}
+@keyframes logo-hop {
+  0% { transform: scale(1, 1); }
+  18% { transform: scale(1.12, 0.84); }
+  45% { transform: translateY(-8px) scale(0.94, 1.1); }
+  70% { transform: translateY(0) scale(1.06, 0.94); }
+  100% { transform: scale(1, 1); }
+}
+@keyframes logo-toss {
+  0% { transform: translateY(0) rotate(0); }
+  20% { transform: translateY(0) rotate(-8deg); }
+  55% { transform: translateY(-22px) rotate(200deg) scale(1.15); }
+  100% { transform: translateY(0) rotate(360deg) scale(1); }
+}
+.logo-confetti {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 7px;
+  height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 2px;
+  pointer-events: none;
+  animation: logo-confetti 0.8s ease-out 0.1s both;
+}
+@keyframes logo-confetti {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0) scale(0.4); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(240deg) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .logo-confetti { display: none; }
+}
