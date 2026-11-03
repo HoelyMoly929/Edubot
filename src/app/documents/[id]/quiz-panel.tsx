@@ -150,49 +150,65 @@ export function QuizPanel({
         <ul className="flex flex-col gap-4">
           {initialQuizzes.map((quiz) => {
             const tier = quiz.bestScore === null ? null : TIERS[tierFor(quiz.bestScore)];
+            const pct = quiz.bestScore === null ? 0 : Math.round(quiz.bestScore * 100);
+            const chip = "rounded-full bg-white/80 px-3 py-1 text-sm font-bold";
             return (
               <li
                 key={quiz._id}
-                className={`flex flex-col gap-4 rounded-[24px] p-5 sm:flex-row sm:items-center sm:gap-6 ${tier ? tier.card : "border-2 border-line-strong bg-card"}`}
+                className={`flex flex-col gap-5 rounded-[24px] p-5 sm:flex-row sm:items-center sm:gap-6 ${
+                  tier ? tier.card : "border-2 border-line-strong bg-card shadow-[var(--shadow-card)]"
+                }`}
               >
-                <div className="min-w-0 sm:flex-1">
-                  <QuizName quizId={quiz._id} initial={quiz.name ?? UNNAMED_QUIZ} />
-                  <div className="text-[15px] text-ink-soft">
-                    {quiz.questionCount} questions
-                    {quiz.attempts > 0 &&
-                      ` · taken ${quiz.attempts} ${quiz.attempts === 1 ? "time" : "times"}`}
+                {/* Who: icon, editable name, size and attempt count. */}
+                <div className="flex min-w-0 items-center gap-4 sm:flex-1">
+                  <span
+                    aria-hidden
+                    className={`flex size-14 flex-none items-center justify-center rounded-[18px] ${
+                      tier ? `bg-white/80 ${tier.ink}` : "bg-brand-softer text-brand-ink"
+                    }`}
+                  >
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="5" y="4" width="14" height="17" rx="3" />
+                      <path d="M9 4.5h6M9 11l2 2 4-4M9 17h6" />
+                    </svg>
+                  </span>
+                  <div className="min-w-0">
+                    <QuizName quizId={quiz._id} initial={quiz.name ?? UNNAMED_QUIZ} />
+                    <div className={`mt-1 flex flex-wrap gap-2 ${tier ? tier.ink : "text-ink-soft"}`}>
+                      <span className={tier ? chip : "rounded-full bg-brand-softer px-3 py-1 text-sm font-bold"}>
+                        {quiz.questionCount} questions
+                      </span>
+                      {quiz.attempts > 0 && (
+                        <span className={chip}>
+                          Taken {quiz.attempts} {quiz.attempts === 1 ? "time" : "times"}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 
-                {tier && quiz.bestScore !== null ? (
-                  <div className="flex flex-col gap-2 sm:w-72">
+                {/* How you did: best score and tier, or an empty track. */}
+                <div className="flex flex-col gap-2 sm:w-64">
+                  {tier ? (
                     <div className="flex items-center justify-between gap-3">
-                      <span className={`display text-[32px] font-medium leading-none ${tier.ink}`}>
-                        {Math.round(quiz.bestScore * 100)}%
-                        <span className="text-lg"> best</span>
+                      <span className={`display text-[34px] font-medium leading-none ${tier.ink}`}>
+                        {pct}%<span className="text-base"> best</span>
                       </span>
-                      <span className={`rounded-full bg-white/80 px-3.5 py-1.5 text-sm font-bold ${tier.ink}`}>
-                        {tier.label}
-                      </span>
+                      <span className={`${chip} ${tier.ink}`}>{tier.label}</span>
                     </div>
-                    <div className="h-3 overflow-hidden rounded-full bg-white/80">
-                      <div
-                        className={`h-full rounded-full ${tier.fill}`}
-                        style={{ width: `${Math.round(quiz.bestScore * 100)}%` }}
-                      />
-                    </div>
+                  ) : (
+                    <span className="text-sm font-bold text-muted">Not taken yet</span>
+                  )}
+                  <div className={`h-3 overflow-hidden rounded-full ${tier ? "bg-white/80" : "bg-track/60"}`}>
+                    {tier && <div className={`h-full rounded-full ${tier.fill}`} style={{ width: `${pct}%` }} />}
                   </div>
-                ) : (
-                  <p className="text-sm font-bold text-muted sm:w-72">Not taken yet</p>
-                )}
-
-                <div className="flex flex-wrap items-center gap-2 sm:flex-none">
-                  <StartQuizButton
-                    quizId={quiz._id}
-                    label={quiz.attempts > 0 ? "Retake quiz" : "Start quiz"}
-                    className="min-h-11 cursor-pointer rounded-full bg-brand px-6 font-bold text-white transition-colors hover:bg-brand-hover disabled:opacity-60"
-                  />
                 </div>
+
+                <StartQuizButton
+                  quizId={quiz._id}
+                  label={quiz.attempts > 0 ? "Retake quiz" : "Start quiz"}
+                  className="min-h-12 flex-none cursor-pointer self-start rounded-full bg-brand px-7 font-bold text-white transition-colors hover:bg-brand-hover disabled:opacity-60 sm:self-center"
+                />
               </li>
             );
           })}
