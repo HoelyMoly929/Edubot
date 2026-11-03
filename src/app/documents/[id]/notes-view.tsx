@@ -89,9 +89,9 @@ export function NotesView({
       const items = run;
       run = [];
       out.push(
-        <ul key={`ul-${items[0].b}`} className="flex list-disc flex-col gap-2 pl-5 marker:text-current">
+        <ul key={`ul-${items[0].b}`} className="flex list-disc flex-col gap-3 pl-5 marker:text-current">
           {items.map(({ block, b }) => (
-            <li key={b} className="leading-normal">
+            <li key={b} className="leading-relaxed">
               {block.lead && <strong className="font-bold">{block.lead}: </strong>}
               {withKeyTerms(block.text)} {renderChip(block, `${s}-${b}`, tone)}
             </li>
@@ -124,7 +124,7 @@ export function NotesView({
         out.push(
           <div key={b}>
             <div className="overflow-x-auto rounded-[14px] bg-white/70">
-              <table className="w-full min-w-[320px] border-collapse text-left text-sm">
+              <table className="w-full min-w-[320px] border-collapse text-left text-[15px]">
                 <thead>
                   <tr>
                     {block.columns.map((c, i) => (
@@ -159,23 +159,23 @@ export function NotesView({
   }
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="mx-auto flex w-full max-w-[780px] flex-col gap-10">
       {groupByChapter(sections).map((group, g) => (
         <section key={g} className="flex flex-col gap-4">
           {group.chapter && (
-            <h3 className="display border-b-2 border-brand-soft pb-2 text-2xl font-medium text-brand-ink">
+            <h3 className="display border-b-2 border-brand-soft pb-2 text-[28px] font-medium text-brand-ink">
               {group.chapter}
             </h3>
           )}
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-4">
+          <div className="flex flex-col gap-4">
             {group.items.map(({ section, index }) => {
               const tone = section.memory ? MEMORY_TONE : TONES[index % TONES.length];
               return (
                 <article
                   key={index}
-                  className={`flex flex-col gap-3 rounded-[20px] p-5 ${tone.card} ${tone.text}`}
+                  className={`flex flex-col gap-4 rounded-[24px] p-[clamp(20px,3vw,28px)] text-[17px] ${tone.card} ${tone.text}`}
                 >
-                  <h4 className="display text-xl font-medium">{section.heading}</h4>
+                  <h4 className="display text-2xl font-medium">{section.heading}</h4>
                   {renderBlocks(section, index, tone)}
                 </article>
               );
