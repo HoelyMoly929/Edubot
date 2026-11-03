@@ -136,6 +136,19 @@ assert.deepEqual(merged[0].blocks.map((b) => (b as { text: string }).text), ["a"
 assert.equal(merged[0].heading, "The Human", "first spelling wins");
 assert.equal(merged[2].blocks.length, 2, "chapter-less sections merge too");
 
+// The same chapter spelled differently by two batches renders as one chapter.
+const respelled = mergeSections([
+  sec("GOMS", "Chapter 3: Cognitive Models", "a"),
+  sec("goms.", "CHAPTER 3 - cognitive models", "b"),
+  sec("KLM", "CHAPTER 3 - cognitive models", "c"),
+]);
+assert.deepEqual(
+  respelled.map((s) => s.chapter),
+  Array(2).fill("Chapter 3: Cognitive Models"),
+  "chapter keeps its first spelling",
+);
+assert.equal(respelled.length, 2, "GOMS merged, KLM separate");
+
 // A batch that starts mid-chapter has no chapter label: inherit the previous one.
 const inherited = mergeSections([
   sec("Intro", "Chapter 1"),
@@ -225,6 +238,20 @@ await assert.rejects(
   assert.equal(last.heading, "Quick memory list");
   assert.equal(last.blocks.length, 1, "unit 50 dropped");
   assert.equal(last.blocks[0].chunkId.toString(), doc[1]._id.toString(), "inherits unit 1's chunk");
+}
+
+// The memory list is an extra: if its call fails twice the notes still ship.
+{
+  let calls = 0;
+  const notes = await generateNotes(doc.slice(0, 2), {
+    batch: async () => one("Kept"),
+    memory: async () => {
+      calls++;
+      throw new Error("schema rejected");
+    },
+  });
+  assert.deepEqual(headingOf(notes), ["Kept"], "notes survive a failed memory call");
+  assert.equal(calls, 2, "memory call was retried once");
 }
 
 // No surviving memory items → no memory section.

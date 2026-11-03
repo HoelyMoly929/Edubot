@@ -39,8 +39,11 @@ export function SummaryPanel({ documentId, initialSummary }: Props) {
     setError(null);
     try {
       const res = await fetch(`/api/documents/${documentId}/summary`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Couldn't write the notes");
+      // A platform timeout returns HTML, not JSON.
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? "Writing the notes took too long. Try again, or try a shorter PDF.");
+      }
       setOpenSource(null);
       router.refresh(); // reload with source excerpts joined server-side
     } catch (err) {

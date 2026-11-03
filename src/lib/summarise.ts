@@ -18,10 +18,11 @@ let client: OpenAI | undefined;
 function getClient(): OpenAI {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set — add it to .env.local");
-  return (client ??= new OpenAI({ apiKey }));
+  // A hung call should fail inside the 300s route limit, not eat it.
+  return (client ??= new OpenAI({ apiKey, timeout: 90_000, maxRetries: 1 }));
 }
 
-const BATCH_PROMPT = `You write detailed revision notes from course material, the way a strong student would in their notebook. You are given part of a document as numbered excerpts.
+const BATCH_PROMPT = `You write concise revision notes from course material, the way a strong student would in their notebook. You are given part of a document as numbered excerpts.
 
 Rules:
 - Use ONLY the numbered excerpts. Never add facts from outside them.
@@ -106,7 +107,9 @@ function memorySchema(unitCount: number) {
           type: "object",
           properties: {
             text: { type: "string" },
-            unit: { type: "integer", enum: Array.from({ length: unitCount }, (_, i) => i + 1) },
+            // No enum: strict mode caps enum values per schema and a long PDF has
+            // hundreds of units. Out-of-range numbers are dropped in generateNotes.
+            unit: { type: "integer", description: `Note number, 1 to ${unitCount}.` },
           },
           required: ["text", "unit"],
           additionalProperties: false,
@@ -226,7 +229,11 @@ export async function generateNotes(
   const sections = mergeSections(perBatch.flat());
 
   const units = sections.flatMap((s) => s.blocks);
-  const items = await withRetry(() => deps.memory(units));
+  // The memory list is an extra card: if it fails, the notes still ship.
+  const items = await withRetry(() => deps.memory(units)).catch((err) => {
+    console.error("memory list failed", err);
+    return [];
+  });
   const blocks = items.flatMap<NoteBlock>(({ text, unit }) => {
     const from = units[unit - 1];
     if (!from || !text.trim()) return [];

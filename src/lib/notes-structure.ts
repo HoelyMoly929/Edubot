@@ -109,7 +109,11 @@ const titleKey = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ")
 export function mergeSections(sections: NoteSection[]): NoteSection[] {
   const out: NoteSection[] = [];
   for (const raw of sections) {
-    const section = raw.chapter ? raw : { ...raw, chapter: out.at(-1)?.chapter };
+    const prev = out.at(-1)?.chapter;
+    // Same chapter spelled differently by another batch keeps the first spelling,
+    // so the view shows one chapter heading, not two.
+    const chapter = !raw.chapter || titleKey(raw.chapter) === titleKey(prev ?? "") ? prev : raw.chapter;
+    const section = chapter === raw.chapter ? raw : { ...raw, chapter };
     const last = out.at(-1);
     if (
       last &&
