@@ -101,9 +101,10 @@ closing memory list).
   facts already covered, and drop exact duplicates after merging.
 - **Failure policy (my call):** retry a failed batch once; if it still fails,
   fail the whole generation with a clear message. Never store partial notes.
-- **Size ceiling (my call):** cap at about 40 batches (roughly 240 chunks, 120
-  pages of dense prose); beyond that, return a clear "too long to summarise in
-  one go" message rather than time out.
+- **Size ceiling (my call, raised after measuring):** cap at 100 batches of 2
+  chunks (200 chunks, 100+ pages of dense prose; a 200-chunk run took 88s);
+  beyond that, return a clear "too long to summarise in one go" message rather
+  than time out.
 - **Checks:** one runnable `check:summary` script for the pure parts (batching,
   section merging, source-to-chunk mapping, rejecting out-of-range sources),
   wired into `package.json` like the others.

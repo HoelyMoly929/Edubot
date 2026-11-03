@@ -6,8 +6,11 @@ import type { Chunk, NoteBlock, NoteSection } from "./schema.ts";
  * HCI example); two keeps each call small enough to cover everything.
  */
 export const BATCH_SIZE = 2;
-/** 40 batches ≈ 80 chunks ≈ 40 pages of dense prose; beyond that a run risks the 300s limit. */
-export const MAX_BATCHES = 40;
+/**
+ * 100 batches = 200 chunks, 100+ pages of dense prose. Measured: 24 batches took
+ * 25s at 8 in flight, so 100 should land well inside the 300s route limit.
+ */
+export const MAX_BATCHES = 100;
 
 export class NotesTooLongError extends Error {}
 
