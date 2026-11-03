@@ -118,7 +118,7 @@ function memorySchema(unitCount: number) {
   };
 }
 
-async function askModel<T>(system: string, user: string, name: string, schema: object): Promise<T> {
+async function askModel<T>(system: string, user: string, name: string, schema: Record<string, unknown>): Promise<T> {
   const response = await getClient().chat.completions.create({
     model: GENERATION_MODEL,
     // Low but non-zero: these are factual notes, not creative writing.

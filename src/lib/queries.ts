@@ -9,7 +9,7 @@ import {
 } from "./db.ts";
 import { getCurrentUser } from "./user.ts";
 import { UNNAMED_QUIZ } from "./quiz-name.ts";
-import type { PdfDocument, Quiz, QuizAttempt, Summary } from "./schema.ts";
+import type { NoteBlock, NoteSection, PdfDocument, Quiz, QuizAttempt, Summary } from "./schema.ts";
 
 /**
  * Read helpers for server components.
@@ -49,27 +49,53 @@ export interface CitedPoint {
   sourceText: string;
 }
 
+/** A stored section with ids as strings, so it can cross to a client component. */
+export type CitedBlock = NoteBlock extends infer B
+  ? B extends NoteBlock
+    ? Omit<B, "chunkId"> & { chunkId: string }
+    : never
+  : never;
+export interface CitedSection extends Omit<NoteSection, "blocks"> {
+  blocks: CitedBlock[];
+}
+
 /**
- * The latest summary with each point's source excerpt attached.
+ * The latest summary with the source excerpts it cites.
  *
  * Joined here rather than fetched on click: it's one extra query against an
  * indexed field, and it means verifying a citation is instant instead of a
  * spinner — which is the difference between people checking sources and not.
+ * Excerpts come once in `sources` (chunk id → text) rather than per block.
+ * Summaries written before sections existed come back as `points` only.
  */
 export async function getSummaryWithSources(documentId: ObjectId): Promise<{
   points: CitedPoint[];
+  sections?: CitedSection[];
+  sources: Record<string, string>;
   createdAt: Date;
 } | null> {
   const summary = await getLatestSummary(documentId);
   if (!summary) return null;
 
-  const sources = await (await chunks())
-    .find({ _id: { $in: summary.points.map((point) => point.chunkId) } })
-    .toArray();
-  const byId = new Map(sources.map((chunk) => [chunk._id.toString(), chunk]));
+  const ids = [
+    ...summary.points.map((point) => point.chunkId),
+    ...(summary.sections ?? []).flatMap((s) => s.blocks.map((b) => b.chunkId)),
+  ];
+  const found = await (await chunks()).find({ _id: { $in: ids } }).toArray();
+  const byId = new Map(found.map((chunk) => [chunk._id.toString(), chunk]));
 
   return {
     createdAt: summary.createdAt,
+    sources: Object.fromEntries(found.map((chunk) => [chunk._id.toString(), chunk.text])),
+    sections: summary.sections?.map((section) => ({
+      ...section,
+      blocks: section.blocks.map((block) => ({
+        ...block,
+        chunkId: block.chunkId.toString(),
+        // Prefer the chunk's own range, as for points.
+        endPage: byId.get(block.chunkId.toString())?.endPage ?? block.endPage,
+      })) as CitedBlock[],
+    })),
     points: summary.points.map((point) => ({
       heading: point.heading,
       text: point.text,

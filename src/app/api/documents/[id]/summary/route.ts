@@ -1,8 +1,9 @@
 import { ObjectId } from "mongodb";
 import { documents, summaries } from "@/lib/db";
 import { getCurrentUser } from "@/lib/user";
-import { retrieveChunks } from "@/lib/retrieve";
-import { generateSummary, SUMMARY_QUERY } from "@/lib/summarise";
+import { loadChunks } from "@/lib/retrieve";
+import { generateNotes } from "@/lib/summarise";
+import { NotesTooLongError } from "@/lib/notes-structure";
 import type { PdfDocument, Summary, User } from "@/lib/schema";
 
 // Model calls (and for processing, extracting and embedding a large PDF) can
@@ -46,11 +47,12 @@ export async function GET(
 }
 
 /**
- * Generates a source-grounded summary: embed the instruction, retrieve the
- * top-k most similar chunks, and prompt the model with only those (spec §6).
+ * Writes source-grounded study notes for the whole document: every chunk is
+ * read in order, a few at a time (see `generateNotes`). Deliberately not top-k
+ * retrieval (spec §6), so no part of the PDF is left out.
  */
 export async function POST(
-  request: Request,
+  _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<Response> {
   const authorised = await authorise((await params).id);
@@ -64,35 +66,36 @@ export async function POST(
     );
   }
 
-  // Optional override so a user can later ask for a focused summary; topK stays
-  // tunable per spec §6 but is clamped so a caller can't request the whole index.
-  const body = await request.json().catch(() => ({}));
-  const query = typeof body?.query === "string" && body.query.trim() ? body.query : SUMMARY_QUERY;
-  const topK = Number.isInteger(body?.topK) ? Math.min(Math.max(body.topK, 1), 20) : undefined;
-
   try {
-    const retrieved = await retrieveChunks(doc._id, query, topK);
-    if (retrieved.length === 0) {
+    const chunks = await loadChunks(doc._id);
+    if (chunks.length === 0) {
       return Response.json({ error: "That document has no indexed text." }, { status: 409 });
     }
 
-    const points = await generateSummary(retrieved);
-    if (points.length === 0) {
+    const sections = await generateNotes(chunks);
+    if (sections.length === 0) {
       return Response.json(
-        { error: "The model could not produce a grounded summary from this material." },
+        { error: "The model could not produce grounded notes from this material." },
         { status: 422 },
       );
     }
 
     const summary: Omit<Summary, "_id"> = {
       documentId: doc._id,
-      points,
+      points: [], // legacy field, required by the collection validator
+      sections,
       createdAt: new Date(),
     };
     const { insertedId } = await (await summaries()).insertOne(summary as Summary);
 
     return Response.json({ summary: { ...summary, _id: insertedId } }, { status: 201 });
   } catch (err) {
+    if (err instanceof NotesTooLongError) {
+      return Response.json(
+        { error: "This document is too long to write notes for in one go." },
+        { status: 422 },
+      );
+    }
     console.error("summary generation failed", err);
     return Response.json(
       { error: "Could not generate a summary right now. Please try again." },
