@@ -1,37 +1,19 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Fragment, useState } from "react";
-import type { CitedPoint } from "@/lib/queries";
+import { useState } from "react";
+import type { CitedPoint, CitedSection } from "@/lib/queries";
+import { NotesView, TONES, withKeyTerms } from "./notes-view";
 import { formatPages, formatPagesLong } from "@/lib/pages";
 
 interface Props {
   documentId: string;
-  initialSummary: { points: CitedPoint[]; createdAt: string } | null;
-}
-
-/** The design's key-point palette, cycled across topic cards. */
-const TONES = [
-  { card: "bg-warn-soft", number: "text-warn", text: "text-[#3B2D00]", chip: "text-warn" },
-  { card: "bg-info-soft", number: "text-info", text: "text-[#0B2F52]", chip: "text-info" },
-  { card: "bg-good-soft", number: "text-good", text: "text-[#08362A]", chip: "text-good" },
-  { card: "bg-bad-soft", number: "text-bad", text: "text-[#4A1A0E]", chip: "text-bad" },
-];
-
-/**
- * Renders `**term**` as bold. Text stays as React text nodes, so nothing the
- * model writes can turn into markup.
- */
-function withKeyTerms(text: string) {
-  return text.split(/\*\*(.+?)\*\*/g).map((part, i) =>
-    i % 2 === 1 ? (
-      <strong key={i} className="font-bold">
-        {part}
-      </strong>
-    ) : (
-      <Fragment key={i}>{part}</Fragment>
-    ),
-  );
+  initialSummary: {
+    points: CitedPoint[];
+    sections?: CitedSection[];
+    sources: Record<string, string>;
+    createdAt: string;
+  } | null;
 }
 
 /** Consecutive bullets sharing a heading become one section. */
@@ -94,18 +76,23 @@ export function SummaryPanel({ documentId, initialSummary }: Props) {
 
       {!summary && !busy && !error && (
         <p className="max-w-[640px] text-[17px] leading-relaxed text-ink-soft">
-          No notes yet. EduBot will turn this document into revision notes, grouped
-          by topic, with the pages each point came from.
+          No notes yet. EduBot will read the whole document and write revision notes:
+          chapters and topics, key points, steps, comparison tables and a quick
+          memory list, with the page each point came from.
         </p>
       )}
 
       {busy && (
         <p className="rounded-[20px] bg-brand-softer p-5 font-semibold text-brand-ink">
-          Reading the document and writing notes…
+          Reading the document and writing notes. This can take a minute or two…
         </p>
       )}
 
-      {summary && !busy && (
+      {summary?.sections && !busy && (
+        <NotesView sections={summary.sections} sources={summary.sources} />
+      )}
+
+      {summary && !summary.sections && !busy && (
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(320px,100%),1fr))] gap-4">
           {groupByHeading(summary.points).map((section, s) => {
             const tone = TONES[s % TONES.length];

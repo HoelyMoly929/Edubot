@@ -76,7 +76,14 @@ export default async function DocumentPage({ params }: PageProps<"/documents/[id
           <SummaryPanel
             documentId={doc._id.toString()}
             initialSummary={
-              summary ? { points: summary.points, createdAt: summary.createdAt.toISOString() } : null
+              summary
+                ? {
+                    points: summary.points,
+                    sections: summary.sections,
+                    sources: summary.sources,
+                    createdAt: summary.createdAt.toISOString(),
+                  }
+                : null
             }
           />
         )}
