@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { LinkSpinner } from "@/app/_components/link-spinner";
 import { auth } from "@clerk/nextjs/server";
+import { JobWatcher } from "@/app/_components/job-watcher";
+import { jobView } from "@/lib/jobs";
 import { listDocuments } from "@/lib/queries";
 import { UploadForm } from "./upload-form";
 
@@ -22,9 +24,16 @@ function FileIcon() {
 export default async function DashboardPage() {
   await auth.protect();
   const docs = await listDocuments();
+  // Notes or a quiz still being written in the background: keep these cards fresh.
+  const working = (doc: (typeof docs)[number]) =>
+    [
+      jobView(doc.jobs?.notes).state === "writing" && "Writing notes…",
+      jobView(doc.jobs?.quiz).state === "writing" && "Building quiz…",
+    ].filter(Boolean) as string[];
 
   return (
     <div className="mx-auto flex w-full max-w-[1184px] flex-col gap-10 px-[clamp(16px,4vw,48px)] pt-4 pb-16">
+      <JobWatcher active={docs.some((doc) => working(doc).length > 0)} />
       <section className="flex flex-wrap items-center gap-10">
         <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-5">
           <div className="flex flex-wrap gap-2 text-sm font-bold">
@@ -84,6 +93,22 @@ export default async function DashboardPage() {
                         <LinkSpinner />
                       </span>
                     </div>
+                    {working(doc).length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {working(doc).map((label) => (
+                          <span
+                            key={label}
+                            className="inline-flex items-center gap-2 rounded-full bg-brand-softer px-3.5 py-1.5 text-sm font-bold text-brand-ink"
+                          >
+                            <span
+                              aria-hidden
+                              className="inline-block size-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+                            />
+                            {label}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                     {doc.error && <p className="text-sm leading-relaxed text-bad">{doc.error}</p>}
                   </Link>
                 </li>

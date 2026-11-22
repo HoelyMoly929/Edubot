@@ -29,6 +29,17 @@ export interface User {
  * "no blocking UI" rule, which needs a server-side processing state to render
  * "Extracting text…" against.
  */
+/**
+ * A long-running generation (notes or a quiz) started from a document. Lives on
+ * the document so it survives the user leaving the page; absent when idle.
+ */
+export interface JobState {
+  status: "writing" | "failed";
+  startedAt: Date;
+  /** Shown to the user when status is "failed". */
+  error?: string;
+}
+
 export interface PdfDocument {
   _id: ObjectId;
   userId: ObjectId;
@@ -40,6 +51,8 @@ export interface PdfDocument {
   status: "processing" | "ready" | "failed";
   /** Set when status is "failed" — surfaced to the user per spec §11. */
   error?: string;
+  /** In-flight or failed generations, so work continues after the user leaves. */
+  jobs?: { notes?: JobState; quiz?: JobState };
 }
 
 /**

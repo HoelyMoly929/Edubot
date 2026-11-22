@@ -1,13 +1,16 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { JobWatcher } from "@/app/_components/job-watcher";
+import type { JobView } from "@/lib/jobs";
 import type { CitedPoint, CitedSection } from "@/lib/queries";
 import { NotesView, TONES, withKeyTerms } from "./notes-view";
 import { formatPages, formatPagesLong } from "@/lib/pages";
 
 interface Props {
   documentId: string;
+  job: JobView;
   initialSummary: {
     points: CitedPoint[];
     sections?: CitedSection[];
@@ -27,34 +30,40 @@ function groupByHeading(points: CitedPoint[]) {
   return sections;
 }
 
-export function SummaryPanel({ documentId, initialSummary }: Props) {
+export function SummaryPanel({ documentId, job, initialSummary }: Props) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [refreshing, startTransition] = useTransition();
+  const [startError, setStartError] = useState<string | null>(null);
+  // The job lives on the server, so it survives leaving this page and coming back.
+  const busy = starting || refreshing || job.state === "writing";
+  const error = startError ?? (job.state === "failed" ? (job.error ?? "Couldn't write the notes") : null);
   const [openSource, setOpenSource] = useState<number | null>(null);
   const summary = initialSummary;
 
   async function generate() {
-    setBusy(true);
-    setError(null);
+    setStarting(true);
+    setStartError(null);
     try {
+      // Returns 202 as soon as the job is claimed; the writing happens server-side.
+      // 409 means one is already running (another tab), which is fine: just watch it.
       const res = await fetch(`/api/documents/${documentId}/summary`, { method: "POST" });
-      // A platform timeout returns HTML, not JSON.
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error ?? "Writing the notes took too long. Try again, or try a shorter PDF.");
+      if (!res.ok && res.status !== 409) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Couldn't start writing the notes. Try again.");
       }
       setOpenSource(null);
-      router.refresh(); // reload with source excerpts joined server-side
+      startTransition(() => router.refresh());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't write the notes");
+      setStartError(err instanceof Error ? err.message : "Couldn't write the notes");
     } finally {
-      setBusy(false);
+      setStarting(false);
     }
   }
 
   return (
     <div className="flex flex-col gap-5">
+      <JobWatcher active={job.state === "writing"} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="display text-[26px] font-medium">Study notes</h2>
         <button
@@ -87,7 +96,9 @@ export function SummaryPanel({ documentId, initialSummary }: Props) {
 
       {busy && (
         <p className="rounded-[20px] bg-brand-softer p-5 font-semibold text-brand-ink">
-          Reading the document and writing notes. This can take a minute or two…
+          Reading the document and writing notes. This can take a minute or two. You're
+          free to leave this page; it keeps going and the notes will be here when you
+          come back.
         </p>
       )}
 

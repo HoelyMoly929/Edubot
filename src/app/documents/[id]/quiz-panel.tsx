@@ -1,7 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
+import { JobWatcher } from "@/app/_components/job-watcher";
+import type { JobView } from "@/lib/jobs";
 import { MAX_QUIZ_NAME, UNNAMED_QUIZ, cleanQuizName } from "@/lib/quiz-name";
 import { TIERS, tierFor } from "@/lib/score-tier";
 import { StartQuizButton } from "@/app/_components/start-quiz-button";
@@ -87,32 +89,43 @@ function QuizName({ quizId, initial }: { quizId: string; initial: string }) {
 
 export function QuizPanel({
   documentId,
+  job,
   initialQuizzes,
 }: {
   documentId: string;
+  job: JobView;
   initialQuizzes: QuizRow[];
 }) {
   const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [starting, setStarting] = useState(false);
+  const [refreshing, startTransition] = useTransition();
+  const [startError, setStartError] = useState<string | null>(null);
+  // The job lives on the server, so it survives leaving this page and coming back.
+  const busy = starting || refreshing || job.state === "writing";
+  const error = startError ?? (job.state === "failed" ? (job.error ?? "Couldn't build a quiz") : null);
 
   async function generate() {
-    setBusy(true);
-    setError(null);
+    setStarting(true);
+    setStartError(null);
     try {
+      // Returns 202 as soon as the job is claimed; the building happens server-side.
+      // 409 means one is already running (another tab), which is fine: just watch it.
       const res = await fetch(`/api/documents/${documentId}/quiz`, { method: "POST" });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Couldn't build a quiz");
-      router.refresh();
+      if (!res.ok && res.status !== 409) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? "Couldn't start building a quiz. Try again.");
+      }
+      startTransition(() => router.refresh());
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't build a quiz");
+      setStartError(err instanceof Error ? err.message : "Couldn't build a quiz");
     } finally {
-      setBusy(false);
+      setStarting(false);
     }
   }
 
   return (
     <div className="flex flex-col gap-5">
+      <JobWatcher active={job.state === "writing"} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="display text-[26px] font-medium">Quizzes</h2>
@@ -138,7 +151,8 @@ export function QuizPanel({
 
       {busy && (
         <p aria-live="polite" className="rounded-[20px] bg-brand-softer p-5 font-semibold text-brand-ink">
-          Writing questions at three difficulty levels…
+          Writing questions at three difficulty levels. You can leave this page; the quiz
+          will be here when you come back.
         </p>
       )}
 

@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getDocument, getSummaryWithSources, listQuizzesWithStats } from "@/lib/queries";
 import { SummaryPanel } from "./summary-panel";
 import { QuizPanel } from "./quiz-panel";
+import { jobView } from "@/lib/jobs";
 
 const STATUS = {
   processing: { label: "Reading…", className: "bg-info-soft text-info" },
@@ -75,6 +76,7 @@ export default async function DocumentPage({ params }: PageProps<"/documents/[id
         ) : (
           <SummaryPanel
             documentId={doc._id.toString()}
+            job={jobView(doc.jobs?.notes)}
             initialSummary={
               summary
                 ? {
@@ -93,6 +95,7 @@ export default async function DocumentPage({ params }: PageProps<"/documents/[id
         <section className="rounded-[28px] border border-line bg-card p-[clamp(20px,3vw,36px)] shadow-[var(--shadow-card)]">
           <QuizPanel
             documentId={doc._id.toString()}
+            job={jobView(doc.jobs?.quiz)}
             initialQuizzes={quizzes.map(({ quiz, bestScore, attempts }) => ({
               _id: quiz._id.toString(),
               name: quiz.name,

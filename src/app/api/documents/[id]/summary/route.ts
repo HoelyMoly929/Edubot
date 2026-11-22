@@ -1,9 +1,11 @@
 import { ObjectId } from "mongodb";
+import { after } from "next/server";
 import { documents, summaries } from "@/lib/db";
 import { getCurrentUser } from "@/lib/user";
 import { loadChunks } from "@/lib/retrieve";
 import { generateNotes } from "@/lib/summarise";
 import { NotesTooLongError } from "@/lib/notes-structure";
+import { JobError, claimJob, runJob } from "@/lib/jobs";
 import type { PdfDocument, Summary, User } from "@/lib/schema";
 
 // Model calls (and for processing, extracting and embedding a large PDF) can
@@ -47,9 +49,12 @@ export async function GET(
 }
 
 /**
- * Writes source-grounded study notes for the whole document: every chunk is
- * read in order, a few at a time (see `generateNotes`). Deliberately not top-k
- * retrieval (spec §6), so no part of the PDF is left out.
+ * Starts writing source-grounded study notes for the whole document: every
+ * chunk is read in order, a few at a time (see `generateNotes`). Deliberately
+ * not top-k retrieval (spec §6), so no part of the PDF is left out.
+ *
+ * Answers 202 straight away and does the work in `after()`, so leaving the page
+ * doesn't stop it. Progress is the document's `jobs.notes`; the page polls it.
  */
 export async function POST(
   _request: Request,
@@ -66,40 +71,37 @@ export async function POST(
     );
   }
 
-  try {
-    const chunks = await loadChunks(doc._id);
-    if (chunks.length === 0) {
-      return Response.json({ error: "That document has no indexed text." }, { status: 409 });
-    }
-
-    const sections = await generateNotes(chunks);
-    if (sections.length === 0) {
-      return Response.json(
-        { error: "The model could not produce grounded notes from this material." },
-        { status: 422 },
-      );
-    }
-
-    const summary: Omit<Summary, "_id"> = {
-      documentId: doc._id,
-      points: [], // legacy field, required by the collection validator
-      sections,
-      createdAt: new Date(),
-    };
-    const { insertedId } = await (await summaries()).insertOne(summary as Summary);
-
-    return Response.json({ summary: { ...summary, _id: insertedId } }, { status: 201 });
-  } catch (err) {
-    if (err instanceof NotesTooLongError) {
-      return Response.json(
-        { error: "This document is too long to write notes for in one go." },
-        { status: 422 },
-      );
-    }
-    console.error("summary generation failed", err);
-    return Response.json(
-      { error: "Could not generate a summary right now. Please try again." },
-      { status: 502 },
-    );
+  if (!(await claimJob(doc._id, "notes"))) {
+    return Response.json({ error: "Notes are already being written." }, { status: 409 });
   }
+
+  after(() =>
+    runJob(doc._id, "notes", "Could not generate a summary right now. Please try again.", async () => {
+      const chunks = await loadChunks(doc._id);
+      if (chunks.length === 0) throw new JobError("That document has no indexed text.");
+
+      let sections;
+      try {
+        sections = await generateNotes(chunks);
+      } catch (err) {
+        if (err instanceof NotesTooLongError) {
+          throw new JobError("This document is too long to write notes for in one go.");
+        }
+        throw err;
+      }
+      if (sections.length === 0) {
+        throw new JobError("The model could not produce grounded notes from this material.");
+      }
+
+      const summary: Omit<Summary, "_id"> = {
+        documentId: doc._id,
+        points: [], // legacy field, required by the collection validator
+        sections,
+        createdAt: new Date(),
+      };
+      await (await summaries()).insertOne(summary as Summary);
+    }),
+  );
+
+  return Response.json({ status: "writing" }, { status: 202 });
 }

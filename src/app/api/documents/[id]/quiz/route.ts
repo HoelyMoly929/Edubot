@@ -1,4 +1,5 @@
 import { ObjectId } from "mongodb";
+import { after } from "next/server";
 import { documents, questions as questionsCollection, quizzes } from "@/lib/db";
 import { getCurrentUser } from "@/lib/user";
 import { retrieveChunks } from "@/lib/retrieve";
@@ -9,6 +10,7 @@ import {
   QUIZ_QUERY,
   generateQuizPool,
 } from "@/lib/quiz";
+import { JobError, claimJob, runJob } from "@/lib/jobs";
 import type { PdfDocument, Question, Quiz } from "@/lib/schema";
 
 // Model calls (and for processing, extracting and embedding a large PDF) can
@@ -50,7 +52,7 @@ export async function GET(
 }
 
 /**
- * Generates a grounded quiz: retrieve the most relevant chunks, then build
+ * Starts building a grounded quiz: retrieve the most relevant chunks, then build
  * questions from only those excerpts (spec §6). Every quiz starts at medium
  * difficulty; the adaptive engine moves from there during an attempt (spec §7).
  */
@@ -73,51 +75,44 @@ export async function POST(
   const count = Math.min(Math.max(requested, MIN_QUESTIONS), MAX_QUESTIONS);
   const topK = Number.isInteger(body?.topK) ? Math.min(Math.max(body.topK, 1), 20) : undefined;
 
-  try {
-    const retrieved = await retrieveChunks(doc._id, QUIZ_QUERY, topK);
-    if (retrieved.length === 0) {
-      return Response.json({ error: "That document has no indexed text." }, { status: 409 });
-    }
-
-    // Pool spans easy/medium/hard so the adaptive engine has somewhere to move;
-    // the attempt itself still starts at medium (spec §7).
-    const drafts = await generateQuizPool(retrieved, count);
-
-    // Dropping malformed questions can leave too few to be a quiz at all.
-    if (drafts.length < MIN_QUESTIONS) {
-      return Response.json(
-        {
-          error:
-            `Only ${drafts.length} usable questions could be grounded in this material ` +
-            `(${MIN_QUESTIONS} needed). Try a document with more detail.`,
-        },
-        { status: 422 },
-      );
-    }
-
-    // Numbered per document, so the first is "Quiz 1". Rename any time.
-    const existing = await (await quizzes()).countDocuments({ documentId: doc._id });
-    const quiz: Omit<Quiz, "_id"> = {
-      documentId: doc._id,
-      name: `Quiz ${existing + 1}`,
-      questionCount: drafts.length,
-      createdAt: new Date(),
-    };
-    const { insertedId: quizId } = await (await quizzes()).insertOne(quiz as Quiz);
-
-    await (await questionsCollection()).insertMany(
-      drafts.map<Omit<Question, "_id">>((draft) => ({ quizId, ...draft })) as Question[],
-    );
-
-    return Response.json(
-      { quiz: { ...quiz, _id: quizId }, questionCount: drafts.length },
-      { status: 201 },
-    );
-  } catch (err) {
-    console.error("quiz generation failed", err);
-    return Response.json(
-      { error: "Could not generate a quiz right now. Please try again." },
-      { status: 502 },
-    );
+  if (!(await claimJob(doc._id, "quiz"))) {
+    return Response.json({ error: "A quiz is already being built." }, { status: 409 });
   }
+
+  // Runs after the response, so leaving the page doesn't stop it. Progress is
+  // the document's `jobs.quiz`; the page polls it.
+  after(() =>
+    runJob(doc._id, "quiz", "Could not generate a quiz right now. Please try again.", async () => {
+      const retrieved = await retrieveChunks(doc._id, QUIZ_QUERY, topK);
+      if (retrieved.length === 0) throw new JobError("That document has no indexed text.");
+
+      // Pool spans easy/medium/hard so the adaptive engine has somewhere to move;
+      // the attempt itself still starts at medium (spec §7).
+      const drafts = await generateQuizPool(retrieved, count);
+
+      // Dropping malformed questions can leave too few to be a quiz at all.
+      if (drafts.length < MIN_QUESTIONS) {
+        throw new JobError(
+          `Only ${drafts.length} usable questions could be grounded in this material ` +
+            `(${MIN_QUESTIONS} needed). Try a document with more detail.`,
+        );
+      }
+
+      // Numbered per document, so the first is "Quiz 1". Rename any time.
+      const existing = await (await quizzes()).countDocuments({ documentId: doc._id });
+      const quiz: Omit<Quiz, "_id"> = {
+        documentId: doc._id,
+        name: `Quiz ${existing + 1}`,
+        questionCount: drafts.length,
+        createdAt: new Date(),
+      };
+      const { insertedId: quizId } = await (await quizzes()).insertOne(quiz as Quiz);
+
+      await (await questionsCollection()).insertMany(
+        drafts.map<Omit<Question, "_id">>((draft) => ({ quizId, ...draft })) as Question[],
+      );
+    }),
+  );
+
+  return Response.json({ status: "writing" }, { status: 202 });
 }
