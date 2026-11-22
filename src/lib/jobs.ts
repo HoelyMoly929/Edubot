@@ -1,6 +1,6 @@
 import type { ObjectId } from "mongodb";
 import { documents } from "./db.ts";
-import type { JobState } from "./schema.ts";
+import type { JobState, PdfDocument } from "./schema.ts";
 
 export type JobKind = "notes" | "quiz";
 
@@ -20,6 +20,21 @@ export function jobView(job: JobState | undefined, now: Date | number = Date.now
   return age > JOB_STALE_MS
     ? { state: "failed", error: "That took too long and was stopped. Please try again." }
     : { state: "writing" };
+}
+
+/**
+ * A document's status as the user should see it. One still "processing" long
+ * after upload lost its reader (the function died), so it reads as failed
+ * instead of spinning forever.
+ */
+export function documentView(
+  doc: Pick<PdfDocument, "status" | "uploadedAt" | "error">,
+  now: Date | number = Date.now(),
+): { status: PdfDocument["status"]; error?: string } {
+  if (doc.status === "processing" && new Date(now).getTime() - doc.uploadedAt.getTime() > JOB_STALE_MS) {
+    return { status: "failed", error: "Reading this PDF took too long and was stopped. Please upload it again." };
+  }
+  return { status: doc.status, error: doc.error };
 }
 
 /** Matches a document only if no live job of this kind is running on it. */

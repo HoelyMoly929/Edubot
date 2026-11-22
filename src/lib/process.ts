@@ -1,5 +1,6 @@
 import {
   chunks as chunksCollection,
+  documents as documentsCollection,
   questions as questionsCollection,
   quizzes as quizzesCollection,
   summaries as summariesCollection,
@@ -59,4 +60,32 @@ export async function indexDocument(
   );
 
   return { pageCount, chunkCount: drafts.length };
+}
+
+/**
+ * Indexes a document and records the outcome on it: "ready" with its page
+ * count, or "failed" with a message the dashboard shows (spec §9, §11). Never
+ * throws, so it is safe to run in the background after a response.
+ */
+export async function processDocument(
+  doc: PdfDocument,
+): Promise<{ ok: true; pageCount: number; chunkCount: number } | { ok: false; error: string }> {
+  const col = await documentsCollection();
+  try {
+    const { pageCount, chunkCount } = await indexDocument(doc);
+    await col.updateOne(
+      { _id: doc._id, userId: doc.userId },
+      { $set: { pageCount, status: "ready" }, $unset: { error: "" } },
+    );
+    return { ok: true, pageCount, chunkCount };
+  } catch (err) {
+    // Only our own validation messages are safe to show the user verbatim.
+    const error =
+      err instanceof UnprocessablePdfError
+        ? err.message
+        : "Something went wrong while processing that PDF. Please try again.";
+    await col.updateOne({ _id: doc._id, userId: doc.userId }, { $set: { status: "failed", error } });
+    if (!(err instanceof UnprocessablePdfError)) console.error("processing failed", err);
+    return { ok: false, error };
+  }
 }

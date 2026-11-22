@@ -2,7 +2,7 @@ import Link from "next/link";
 import { LinkSpinner } from "@/app/_components/link-spinner";
 import { auth } from "@clerk/nextjs/server";
 import { JobWatcher } from "@/app/_components/job-watcher";
-import { jobView } from "@/lib/jobs";
+import { documentView, jobView } from "@/lib/jobs";
 import { listDocuments } from "@/lib/queries";
 import { UploadForm } from "./upload-form";
 
@@ -33,7 +33,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="mx-auto flex w-full max-w-[1184px] flex-col gap-10 px-[clamp(16px,4vw,48px)] pt-4 pb-16">
-      <JobWatcher active={docs.some((doc) => working(doc).length > 0)} />
+      <JobWatcher active={docs.some((doc) => working(doc).length > 0 || documentView(doc).status === "processing")} />
       <section className="flex flex-wrap items-center gap-10">
         <div className="flex min-w-0 flex-[1_1_420px] flex-col gap-5">
           <div className="flex flex-wrap gap-2 text-sm font-bold">
@@ -66,7 +66,8 @@ export default async function DashboardPage() {
         ) : (
           <ul className="grid grid-cols-[repeat(auto-fit,minmax(min(340px,100%),1fr))] gap-4">
             {docs.map((doc) => {
-              const status = STATUS[doc.status];
+              const view = documentView(doc);
+              const status = STATUS[view.status];
               return (
                 <li key={doc._id.toString()}>
                   <Link
@@ -109,7 +110,7 @@ export default async function DashboardPage() {
                         ))}
                       </div>
                     )}
-                    {doc.error && <p className="text-sm leading-relaxed text-bad">{doc.error}</p>}
+                    {view.error && <p className="text-sm leading-relaxed text-bad">{view.error}</p>}
                   </Link>
                 </li>
               );

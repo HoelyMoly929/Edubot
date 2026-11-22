@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { upload } from "@vercel/blob/client";
 import { BLOB_ACCESS, MAX_UPLOAD_BYTES } from "@/lib/blob";
 
@@ -9,7 +9,6 @@ type State =
   | { phase: "idle" }
   | { phase: "uploading"; progress: number }
   | { phase: "saving" }
-  | { phase: "processing" }
   | { phase: "error"; message: string };
 
 export function UploadForm() {
@@ -18,8 +17,16 @@ export function UploadForm() {
   const [state, setState] = useState<State>({ phase: "idle" });
   const [dragging, setDragging] = useState(false);
 
-  const busy =
-    state.phase === "uploading" || state.phase === "saving" || state.phase === "processing";
+  const busy = state.phase === "uploading" || state.phase === "saving";
+
+  // The file's bytes live in this browser tab until the upload finishes, so
+  // closing or reloading mid-upload loses it. (Moving around the app is fine.)
+  useEffect(() => {
+    if (!busy) return;
+    const warn = (e: BeforeUnloadEvent) => e.preventDefault();
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [busy]);
 
   /** One path for both the file picker and a drop. */
   async function handleFile(file: File) {
@@ -54,24 +61,11 @@ export function UploadForm() {
         body: JSON.stringify({ url: blob.url, filename: file.name }),
       });
       if (!saved.ok) throw new Error((await saved.json()).error ?? "Couldn't save that file");
-      const { document } = await saved.json();
 
-      // The document row exists now, so a failure here is recorded against it
-      // rather than losing the upload.
-      setState({ phase: "processing" });
-      const processed = await fetch(`/api/documents/${document._id}/process`, {
-        method: "POST",
-      });
-
+      // Saving the document starts reading it on the server, so from here the user
+      // can leave; the card on the dashboard shows "Reading…" until it's done.
       setState({ phase: "idle" });
       router.refresh();
-
-      if (!processed.ok) {
-        setState({
-          phase: "error",
-          message: (await processed.json()).error ?? "Couldn't read that PDF",
-        });
-      }
     } catch (err) {
       setState({
         phase: "error",
@@ -80,15 +74,14 @@ export function UploadForm() {
     }
   }
 
-  // Spec §9: processing never blocks the page, so each stage names itself.
+  // Spec §9: nothing blocks the page; each stage names itself. Reading the PDF
+  // continues on the server after this form is done.
   const heading =
     state.phase === "uploading"
       ? `Uploading… ${Math.round(state.progress)}%`
       : state.phase === "saving"
         ? "Saving…"
-        : state.phase === "processing"
-          ? "Reading the text…"
-          : "Drop your PDF here";
+        : "Drop your PDF here";
 
   return (
     <div
@@ -127,9 +120,7 @@ export function UploadForm() {
               width:
                 state.phase === "uploading"
                   ? `${Math.max(4, state.progress * 0.6)}%`
-                  : state.phase === "saving"
-                    ? "70%"
-                    : "88%",
+                  : "90%", // saving: the bytes are up, just recording the document
             }}
           />
         </div>

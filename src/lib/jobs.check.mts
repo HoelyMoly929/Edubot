@@ -6,7 +6,7 @@
  */
 import assert from "node:assert/strict";
 import { ObjectId } from "mongodb";
-import { JOB_STALE_MS, JobError, claimFilter, jobErrorMessage, jobView } from "./jobs.ts";
+import { JOB_STALE_MS, JobError, claimFilter, documentView, jobErrorMessage, jobView } from "./jobs.ts";
 
 const now = new Date("2026-11-22T10:00:00Z");
 const ago = (ms: number) => new Date(now.getTime() - ms);
@@ -32,5 +32,15 @@ assert.deepEqual(claimFilter(id, "quiz", now), {
 // Only deliberate JobErrors reach the user verbatim; anything else is generic.
 assert.equal(jobErrorMessage(new JobError("Too long."), "x"), "Too long.");
 assert.equal(jobErrorMessage(new Error("mongo secret detail"), "Try again."), "Try again.");
+
+// A document still "processing" long after upload died mid-read: show it as failed.
+const doc = (status: "processing" | "ready" | "failed", uploadedAt: Date, error?: string) =>
+  ({ status, uploadedAt, error }) as never;
+assert.deepEqual(documentView(doc("ready", ago(JOB_STALE_MS * 5)), now), { status: "ready", error: undefined });
+assert.equal(documentView(doc("processing", ago(1000)), now).status, "processing", "fresh upload is still reading");
+const dead = documentView(doc("processing", ago(JOB_STALE_MS + 1)), now);
+assert.equal(dead.status, "failed", "old processing document reads as failed");
+assert.ok(dead.error, "and says why");
+assert.deepEqual(documentView(doc("failed", ago(5), "Bad PDF"), now), { status: "failed", error: "Bad PDF" });
 
 console.log("jobs: all checks passed");

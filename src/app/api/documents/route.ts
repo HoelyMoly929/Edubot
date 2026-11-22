@@ -1,8 +1,13 @@
 import { head } from "@vercel/blob";
+import { after } from "next/server";
 import { blobToken } from "@/lib/blob-token";
 import { documents } from "@/lib/db";
 import { getCurrentUser } from "@/lib/user";
+import { processDocument } from "@/lib/process";
 import type { PdfDocument } from "@/lib/schema";
+
+// The background read below runs inside this limit (extract + embed a large PDF).
+export const maxDuration = 300;
 
 /** Lists the caller's own documents, newest first. */
 export async function GET(): Promise<Response> {
@@ -21,6 +26,9 @@ export async function GET(): Promise<Response> {
 /**
  * Records a finished upload. The browser sends the blob URL it just wrote; we
  * confirm that blob really exists in our store before trusting it.
+ *
+ * Reading the PDF (extract, chunk, embed) starts here in the background, so the
+ * user can leave the moment the file is saved and the document still finishes.
  */
 export async function POST(request: Request): Promise<Response> {
   const user = await getCurrentUser();
@@ -55,6 +63,8 @@ export async function POST(request: Request): Promise<Response> {
 
   const col = await documents();
   const { insertedId } = await col.insertOne(doc as PdfDocument);
+
+  after(() => processDocument({ ...doc, _id: insertedId } as PdfDocument));
 
   return Response.json({ document: { ...doc, _id: insertedId, size } }, { status: 201 });
 }
